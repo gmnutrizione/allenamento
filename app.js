@@ -3,6 +3,7 @@
 // ============================================================
 let clienteNome = "";
 let clienteCsvUrl = "";
+let clientiList = [];     // elenco Codice/Cliente/Link scheda
 let esercizi = [];        // righe grezze del foglio del cliente
 let archivio = {};        // nome esercizio -> {video, descrizione, alternative[]}
 let fotoGruppi = {};      // gruppo muscolare -> url foto
@@ -17,31 +18,48 @@ let editState = {};       // salvato in localStorage, per cliente
 window.addEventListener("DOMContentLoaded", init);
 
 async function init() {
-  const params = new URLSearchParams(window.location.search);
-  clienteCsvUrl = params.get("data");
-  clienteNome = params.get("cliente") || "";
-
-  if (clienteCsvUrl) {
-    // primo accesso da browser: salvo per quando l'app viene riaperta dall'icona
-    localStorage.setItem("gm_ultimo_link", JSON.stringify({ data: clienteCsvUrl, cliente: clienteNome }));
-  } else {
-    // riapertura dall'icona: il telefono spesso perde i parametri dopo "?"
-    // recupero l'ultimo link salvato la prima volta
-    const ultimo = localStorage.getItem("gm_ultimo_link");
-    if (ultimo) {
-      const obj = JSON.parse(ultimo);
-      clienteCsvUrl = obj.data;
-      clienteNome = obj.cliente;
-    }
-  }
-
-  if (!clienteCsvUrl) {
+  try {
+    clientiList = await fetchCsv(CLIENTI_CSV_URL);
+  } catch (err) {
+    console.error(err);
     showScreen("screen-error");
     document.getElementById("error-message").textContent =
-      "Manca il collegamento alla tua scheda. Apri prima il link ricevuto dal tuo personal trainer da un browser (non dall'icona), poi salvalo sulla home.";
+      "Non riesco a contattare il server. Controlla la connessione e riprova.";
     return;
   }
 
+  // sessione gi\u00e0 validata in precedenza su questo telefono?
+  const sessione = localStorage.getItem("gm_sessione");
+  if (sessione) {
+    const obj = JSON.parse(sessione);
+    clienteNome = obj.cliente;
+    clienteCsvUrl = obj.csvUrl;
+    await caricaSchedaCliente();
+    return;
+  }
+
+  showScreen("screen-access");
+  document.getElementById("access-title").textContent = "Benvenuto";
+  document.getElementById("access-submit").onclick = provaAccesso;
+}
+
+async function provaAccesso() {
+  const inserito = document.getElementById("access-code-input").value.trim();
+  const riga = clientiList.find(r => (r.Codice || "").trim() === inserito);
+  if (!riga || !riga["Link scheda"]) {
+    document.getElementById("access-error").textContent = "Codice non corretto, riprova.";
+    return;
+  }
+  clienteNome = (riga.Cliente || "").trim();
+  clienteCsvUrl = (riga["Link scheda"] || "").trim();
+  localStorage.setItem("gm_sessione", JSON.stringify({ cliente: clienteNome, csvUrl: clienteCsvUrl }));
+
+  document.getElementById("access-submit").textContent = "Attendere...";
+  await caricaSchedaCliente();
+}
+
+async function caricaSchedaCliente() {
+  showScreen("screen-loading");
   try {
     const [datiCliente, datiArchivio, datiFoto] = await Promise.all([
       fetchCsv(clienteCsvUrl),
@@ -66,7 +84,7 @@ async function init() {
     });
 
     loadEditState();
-    checkAccess();
+    afterAccessGranted();
   } catch (err) {
     console.error(err);
     showScreen("screen-error");
@@ -88,32 +106,10 @@ function fetchCsv(url) {
 }
 
 // ============================================================
-// ACCESSO
+// ACCESSO (vedi provaAccesso() piu' in alto)
 // ============================================================
 function storageKey(suffix) {
   return "gm_palestra_" + btoa(clienteCsvUrl).slice(0, 40) + "_" + suffix;
-}
-
-function checkAccess() {
-  const saved = localStorage.getItem(storageKey("accesso"));
-  if (saved === "ok") {
-    afterAccessGranted();
-    return;
-  }
-  showScreen("screen-access");
-  document.getElementById("access-title").textContent =
-    clienteNome ? ("Benvenuto " + clienteNome) : "Benvenuto";
-
-  document.getElementById("access-submit").onclick = () => {
-    const inserted = document.getElementById("access-code-input").value.trim();
-    const codiceValido = (esercizi[0] && esercizi[0].Codice) ? esercizi[0].Codice.trim() : "";
-    if (codiceValido && inserted === codiceValido) {
-      localStorage.setItem(storageKey("accesso"), "ok");
-      afterAccessGranted();
-    } else {
-      document.getElementById("access-error").textContent = "Codice non corretto, riprova.";
-    }
-  };
 }
 
 function afterAccessGranted() {
