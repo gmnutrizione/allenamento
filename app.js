@@ -247,29 +247,41 @@ function buildGiorni() {
     if (r.Giorno && !giorni.includes(r.Giorno)) giorni.push(r.Giorno);
   });
 
-  const list = document.getElementById("day-list");
-  list.innerHTML = "";
-  giorni.forEach(giorno => {
+  const dati = giorni.map(giorno => {
     const rows = esercizi.filter(r => r.Giorno === giorno);
     const gruppi = [...new Set(rows.map(r => r["Gruppo muscolare"]).filter(Boolean))];
     const totale = rows.length ? caricoColumns(rows[0]).length : 0;
     const completate = getCompletate(giorno);
     const percentuale = totale > 0 ? Math.min(100, Math.round((completate / totale) * 100)) : 0;
+    return { giorno, gruppi, rowsCount: rows.length, totale, completate, percentuale };
+  });
+
+  // il "prossimo" e' quello non ancora completato al 100% con meno allenamenti fatti,
+  // a parita' vince l'ordine alfabetico del nome del giorno
+  const candidati = dati.filter(d => d.totale > 0 && d.percentuale < 100);
+  candidati.sort((a, b) => a.completate - b.completate || a.giorno.localeCompare(b.giorno));
+  const prossimoGiorno = candidati.length ? candidati[0].giorno : null;
+
+  const list = document.getElementById("day-list");
+  list.innerHTML = "";
+  dati.forEach(d => {
+    const completato = d.totale > 0 && d.percentuale >= 100;
+    const evidenziato = d.giorno === prossimoGiorno;
 
     const card = document.createElement("div");
-    card.className = "day-card";
+    card.className = "day-card" + (evidenziato ? " day-card-next" : "");
     card.innerHTML = `
       <div class="day-card-top">
-        <div class="day-icon-box">&#127947;</div>
+        <div class="day-icon-box${completato ? " completato" : ""}">${completato ? "&#10003;" : "&#127947;"}</div>
         <div class="day-info">
-          <p class="day-name">${giorno} - ${gruppi.join(" e ")}</p>
-          <p class="day-sub">${totale > 0 ? completate + " di " + totale + " allenamenti" : rows.length + " esercizi"}</p>
+          <p class="day-name">${d.giorno} - ${d.gruppi.join(" e ")}</p>
+          <p class="day-sub">${d.totale > 0 ? d.completate + " di " + d.totale + " allenamenti" : d.rowsCount + " esercizi"}</p>
         </div>
         <span class="day-arrow">&#8250;</span>
       </div>
-      ${totale > 0 ? `<div class="day-progress"><div class="day-progress-fill" style="width:${percentuale}%;"></div></div>` : ""}
+      ${d.totale > 0 ? `<div class="day-progress"><div class="day-progress-fill" style="width:${d.percentuale}%;"></div></div>` : ""}
     `;
-    card.addEventListener("click", () => openGiorno(giorno));
+    card.addEventListener("click", () => openGiorno(d.giorno));
     list.appendChild(card);
   });
 }
