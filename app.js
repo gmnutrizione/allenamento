@@ -195,6 +195,26 @@ function apriBlocco(numero) {
   showScreen("screen-giorni");
 }
 
+document.getElementById("reset-blocchi-btn").addEventListener("click", resetAllenamenti);
+
+function resetAllenamenti() {
+  const codice = prompt("Inserisci il codice per confermare il reset:");
+  if (codice === null) return;
+  if (codice.trim() !== "7858") {
+    alert("Codice non corretto.");
+    return;
+  }
+  if (!confirm("Sicuro di voler azzerare da 0 tutti gli allenamenti completati di questo blocco?")) return;
+
+  const giorniBlocco = [...new Set(
+    eserciziTotali.filter(r => parseBloccoNum(r.Blocco) === currentBloccoNumero).map(r => r.Giorno)
+  )];
+  giorniBlocco.forEach(g => localStorage.removeItem(completateKey(g)));
+
+  alert("Allenamenti azzerati.");
+  buildBlocchi();
+}
+
 // ============================================================
 // NAVIGAZIONE SCHERMATE
 // ============================================================
