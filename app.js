@@ -181,7 +181,7 @@ function buildBlocchi() {
   prossimo.innerHTML = `
     <div style="flex:1;">
       <p class="blocco-nome">Blocco ${currentBloccoNumero + 1}</p>
-      <p class="blocco-stato">Si sblocca quando il tuo trainer lo prepara</p>
+      <p class="blocco-stato">Si sblocca al completamento del Blocco ${currentBloccoNumero}</p>
     </div>
     <span style="font-size:16px;">&#128274;</span>
   `;
@@ -274,7 +274,18 @@ function openGiorno(giorno) {
   }
 
   renderGruppi(giorno, gruppi);
+  document.getElementById("concludi-btn").onclick = () => concludiAllenamento(giorno);
   showScreen("screen-esercizi");
+}
+
+function concludiAllenamento(giorno) {
+  inviaEvento({
+    tipo: "Giorno completato",
+    blocco: currentBloccoNumero,
+    giorno: giorno,
+    commento: "Allenamento concluso"
+  });
+  showScreen("screen-giorni");
 }
 
 // ============================================================
