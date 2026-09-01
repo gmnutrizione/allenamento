@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Schede Palestra</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#085041">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- SCHERMATA: caricamento -->
+  <div id="screen-loading" class="screen active">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <p>Carico la tua scheda...</p>
+    </div>
+  </div>
+
+  <!-- SCHERMATA: errore link mancante -->
+  <div id="screen-error" class="screen">
+    <div class="center-box">
+      <div class="icon-circle icon-warn">!</div>
+      <p class="title">Link non valido</p>
+      <p class="subtitle" id="error-message">Manca il collegamento alla tua scheda. Contatta il tuo personal trainer per ricevere il link corretto.</p>
+    </div>
+  </div>
+
+  <!-- SCHERMATA: accesso -->
+  <div id="screen-access" class="screen">
+    <div class="center-box">
+      <div class="icon-circle icon-lock">&#128274;</div>
+      <p class="title" id="access-title">Benvenuto</p>
+      <p class="subtitle">Inserisci il codice ricevuto dal tuo personal trainer</p>
+      <input type="text" id="access-code-input" placeholder="Codice di accesso" inputmode="numeric">
+      <button class="btn-primary" id="access-submit">Continua</button>
+      <p class="error-text" id="access-error"></p>
+    </div>
+  </div>
+
+  <!-- SCHERMATA: categorie -->
+  <div id="screen-categorie" class="screen">
+    <div class="page-pad">
+      <p class="greeting" id="greeting-text">Ciao</p>
+      <p class="page-title">Cosa alleni oggi?</p>
+      <div class="category-list">
+        <div class="category-card active" data-category="palestra">
+          <span class="cat-icon">&#127947;</span>
+          <span class="cat-name">Palestra</span>
+          <span class="cat-arrow">&#8250;</span>
+        </div>
+        <div class="category-card disabled">
+          <span class="cat-icon">&#127939;</span>
+          <span class="cat-name">Corsa</span>
+          <span class="cat-soon">presto</span>
+        </div>
+        <div class="category-card disabled">
+          <span class="cat-icon">&#9995;</span>
+          <span class="cat-name">Allenamento funzionale</span>
+          <span class="cat-soon">presto</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHERMATA: giorni -->
+  <div id="screen-giorni" class="screen">
+    <div class="page-pad">
+      <div class="top-bar">
+        <span class="back-arrow" data-back="screen-categorie">&#8592;</span>
+        <p class="page-title-inline">Palestra</p>
+      </div>
+      <div class="day-list" id="day-list"></div>
+    </div>
+  </div>
+
+  <!-- SCHERMATA: esercizi -->
+  <div id="screen-esercizi" class="screen">
+    <div class="day-header" id="day-header">
+      <span class="back-arrow light" data-back="screen-giorni">&#8592;</span>
+      <p class="day-header-title" id="day-header-title"></p>
+      <div class="chip-row" id="day-chips"></div>
+    </div>
+    <div class="page-pad" id="exercise-groups"></div>
+  </div>
+
+  <!-- SCHERMATA: dettaglio -->
+  <div id="screen-dettaglio" class="screen">
+    <div class="page-pad">
+      <div class="top-bar">
+        <span class="back-arrow" data-back="screen-esercizi">&#8592;</span>
+        <p class="page-title-inline" id="detail-name-top">Esercizio</p>
+      </div>
+      <div class="video-box" id="video-box"></div>
+      <div class="desc-toggle" id="desc-toggle">
+        <p class="detail-name" id="detail-name"></p>
+        <span class="chevron" id="desc-chevron">&#8964;</span>
+      </div>
+      <div class="desc-text" id="desc-text"></div>
+      <div class="sets-rec-row">
+        <p class="sets-reps" id="detail-sets-reps"></p>
+        <button class="rec-btn" id="rec-btn">
+          <span class="rec-icon" id="rec-icon">
+            <span class="play-tri"></span>
+          </span>
+          <span id="rec-text">Rec</span>
+        </button>
+      </div>
+      <div class="sets-inputs" id="sets-inputs"></div>
+      <div class="comment-box">
+        <p class="comment-label">Commento</p>
+        <textarea id="comment-input" placeholder="Scrivi qui eventuali feedback..."></textarea>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
