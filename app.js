@@ -229,6 +229,18 @@ document.addEventListener("visibilitychange", () => {
 // ============================================================
 // GIORNI
 // ============================================================
+function completateKey(giorno) {
+  return storageKey("completate_" + currentBloccoNumero + "_" + giorno);
+}
+function getCompletate(giorno) {
+  return parseInt(localStorage.getItem(completateKey(giorno))) || 0;
+}
+function incrementaCompletate(giorno) {
+  const n = getCompletate(giorno) + 1;
+  localStorage.setItem(completateKey(giorno), n);
+  return n;
+}
+
 function buildGiorni() {
   giorni = [];
   esercizi.forEach(r => {
@@ -240,15 +252,22 @@ function buildGiorni() {
   giorni.forEach(giorno => {
     const rows = esercizi.filter(r => r.Giorno === giorno);
     const gruppi = [...new Set(rows.map(r => r["Gruppo muscolare"]).filter(Boolean))];
+    const totale = rows.length ? caricoColumns(rows[0]).length : 0;
+    const completate = getCompletate(giorno);
+    const percentuale = totale > 0 ? Math.min(100, Math.round((completate / totale) * 100)) : 0;
+
     const card = document.createElement("div");
     card.className = "day-card";
     card.innerHTML = `
-      <div class="day-icon-box">&#127947;</div>
-      <div class="day-info">
-        <p class="day-name">${giorno} - ${gruppi.join(" e ")}</p>
-        <p class="day-sub">${rows.length} esercizi</p>
+      <div class="day-card-top">
+        <div class="day-icon-box">&#127947;</div>
+        <div class="day-info">
+          <p class="day-name">${giorno} - ${gruppi.join(" e ")}</p>
+          <p class="day-sub">${totale > 0 ? completate + " di " + totale + " allenamenti" : rows.length + " esercizi"}</p>
+        </div>
+        <span class="day-arrow">&#8250;</span>
       </div>
-      <span class="day-arrow">&#8250;</span>
+      ${totale > 0 ? `<div class="day-progress"><div class="day-progress-fill" style="width:${percentuale}%;"></div></div>` : ""}
     `;
     card.addEventListener("click", () => openGiorno(giorno));
     list.appendChild(card);
@@ -279,12 +298,14 @@ function openGiorno(giorno) {
 }
 
 function concludiAllenamento(giorno) {
+  const numero = incrementaCompletate(giorno);
   inviaEvento({
     tipo: "Giorno completato",
     blocco: currentBloccoNumero,
     giorno: giorno,
-    commento: "Allenamento concluso"
+    commento: "Allenamento numero " + numero + " concluso"
   });
+  buildGiorni();
   showScreen("screen-giorni");
 }
 
