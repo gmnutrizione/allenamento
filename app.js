@@ -4,7 +4,9 @@
 let clienteNome = "";
 let clienteCsvUrl = "";
 let clientiList = [];     // elenco Codice/Cliente/Link scheda
-let esercizi = [];        // righe grezze del foglio del cliente
+let eserciziTotali = []; // tutte le righe del foglio del cliente, tutti i blocchi
+let esercizi = [];        // sottoinsieme del blocco attualmente aperto
+let currentBloccoNumero = 1;
 let archivio = {};        // nome esercizio -> {video, descrizione, alternative[]}
 let fotoGruppi = {};      // gruppo muscolare -> url foto
 let giorni = [];          // elenco ordinato dei giorni
@@ -67,7 +69,8 @@ async function caricaSchedaCliente() {
       fetchCsv(FOTO_CSV_URL)
     ]);
 
-    esercizi = datiCliente.filter(r => r.Esercizio && r.Esercizio.trim() !== "");
+    eserciziTotali = datiCliente.filter(r => r.Esercizio && r.Esercizio.trim() !== "");
+    currentBloccoNumero = Math.max(1, ...eserciziTotali.map(r => parseBloccoNum(r.Blocco)));
     archivio = {};
     datiArchivio.forEach(r => {
       if (!r.Esercizio) return;
@@ -114,8 +117,82 @@ function storageKey(suffix) {
 
 function afterAccessGranted() {
   document.getElementById("greeting-text").textContent = clienteNome ? ("Ciao " + clienteNome) : "Ciao";
-  buildGiorni();
   showScreen("screen-categorie");
+}
+
+// ============================================================
+// BLOCCHI
+// ============================================================
+function parseBloccoNum(s) {
+  const m = (s || "").match(/\d+/);
+  return m ? parseInt(m[0]) : 1;
+}
+
+function caricoColumns(row) {
+  return Object.keys(row)
+    .map(k => {
+      const m = k.match(/^Carico\s+(\d+)\s*sett/i);
+      return m ? { n: parseInt(m[1]), key: k } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.n - b.n);
+}
+
+function ultimoCarico(row) {
+  const cols = caricoColumns(row);
+  for (let i = cols.length - 1; i >= 0; i--) {
+    const val = (row[cols[i].key] || "").trim();
+    if (val) return val;
+  }
+  return "";
+}
+
+function buildBlocchi() {
+  const list = document.getElementById("blocchi-list");
+  list.innerHTML = "";
+
+  for (let i = 1; i <= currentBloccoNumero; i++) {
+    const card = document.createElement("div");
+    if (i < currentBloccoNumero) {
+      card.className = "blocco-card completato";
+      card.innerHTML = `
+        <div style="flex:1;">
+          <p class="blocco-nome">Blocco ${i}</p>
+          <p class="blocco-stato">Completato</p>
+        </div>
+        <span style="font-size:16px;">&#10003;</span>
+      `;
+    } else {
+      card.className = "blocco-card attivo";
+      card.innerHTML = `
+        <div style="flex:1;">
+          <p class="blocco-nome">Blocco ${i}</p>
+          <p class="blocco-stato">In corso</p>
+        </div>
+        <span>&#8250;</span>
+      `;
+      card.addEventListener("click", () => apriBlocco(i));
+    }
+    list.appendChild(card);
+  }
+
+  const prossimo = document.createElement("div");
+  prossimo.className = "blocco-card bloccato";
+  prossimo.innerHTML = `
+    <div style="flex:1;">
+      <p class="blocco-nome">Blocco ${currentBloccoNumero + 1}</p>
+      <p class="blocco-stato">Si sblocca quando il tuo trainer lo prepara</p>
+    </div>
+    <span style="font-size:16px;">&#128274;</span>
+  `;
+  list.appendChild(prossimo);
+}
+
+function apriBlocco(numero) {
+  esercizi = eserciziTotali.filter(r => parseBloccoNum(r.Blocco) === numero);
+  document.getElementById("giorni-title").textContent = "Blocco " + numero;
+  buildGiorni();
+  showScreen("screen-giorni");
 }
 
 // ============================================================
@@ -137,7 +214,8 @@ document.addEventListener("click", e => {
   }
   const catCard = e.target.closest(".category-card");
   if (catCard && catCard.dataset.category === "palestra") {
-    showScreen("screen-giorni");
+    buildBlocchi();
+    showScreen("screen-blocchi");
   }
 });
 
@@ -293,7 +371,8 @@ function renderRigaEsercizio(ex, giorno, gruppo, chiave, bloccato, editMode, onC
   const row = document.createElement("div");
   row.className = "exercise-row";
   const nome = ex.Esercizio || ex.esercizio;
-  const serie = ex.Serie, rip = ex.Ripetizioni;
+  const variante = ex.Variante ? ` (${ex.Variante})` : "";
+  const serie = ex.Serie, rip = ex.Rep;
 
   let iconsHtml;
   if (!editMode) {
@@ -308,7 +387,7 @@ function renderRigaEsercizio(ex, giorno, gruppo, chiave, bloccato, editMode, onC
 
   row.innerHTML = `
     <div>
-      <p class="exercise-name">${nome}</p>
+      <p class="exercise-name">${nome}${variante}</p>
       <p class="exercise-sub">${serie} x ${rip}</p>
     </div>
     ${iconsHtml}
@@ -381,30 +460,31 @@ function aggiungiEsercizio(giorno, gruppo, sugg) {
 function apriDettaglio(ex, giorno, gruppo) {
   const nome = ex.Esercizio || ex.esercizio;
   const info = archivio[nome.trim()] || { video: "", descrizione: "" };
+  const video = (ex.Video || "").trim() || info.video;
+
   currentDettaglio = {
     giorno, gruppo, esercizio: nome,
-    serie: parseInt(ex.Serie) || 0,
-    ripetizioni: ex.Ripetizioni,
+    serie: parseInt(ex.Serie) || 1,
+    ripetizioni: ex.Rep,
     recupero: parseInt(ex.Recupero) || 0,
     tipo: (ex.Tipo || "pesi").toLowerCase(),
-    kgPrevisti: (ex.Kg || "").toString().trim(),
+    caricoPrevisto: ultimoCarico(ex),
     valori: [] // riempito sotto
   };
 
-  document.getElementById("detail-name-top").textContent = nome;
-  document.getElementById("detail-name").textContent = nome;
+  const variante = ex.Variante ? " (" + ex.Variante + ")" : "";
+  document.getElementById("detail-name-top").textContent = nome + variante;
+  document.getElementById("detail-name").textContent = nome + variante;
   document.getElementById("desc-text").textContent = info.descrizione || "Nessuna descrizione disponibile.";
   document.getElementById("desc-text").style.display = "none";
   document.getElementById("desc-chevron").classList.remove("open");
 
-  document.getElementById("video-box").innerHTML = info.video
-    ? `<iframe src="${toEmbedUrl(info.video)}" allowfullscreen allow="autoplay; encrypted-media"></iframe>`
+  document.getElementById("video-box").innerHTML = video
+    ? `<iframe src="${toEmbedUrl(video)}" allowfullscreen allow="autoplay; encrypted-media"></iframe>`
     : `<div class="video-placeholder"></div>`;
 
   document.getElementById("detail-sets-reps").textContent = currentDettaglio.serie + " x " + currentDettaglio.ripetizioni;
-  document.getElementById("target-kg").textContent = currentDettaglio.kgPrevisti
-    ? (currentDettaglio.kgPrevisti + " kg")
-    : "";
+  document.getElementById("target-kg").textContent = currentDettaglio.caricoPrevisto || "";
 
   renderSetsInputs();
   setupRecTimer(currentDettaglio.recupero);
@@ -587,13 +667,14 @@ function inviaRisultatoCorrente() {
   if (currentDettaglio.tipo.includes("corpo")) {
     rep = valori.join("-");
   } else {
-    kg = currentDettaglio.kgPrevisti || "";
+    kg = currentDettaglio.caricoPrevisto || "";
     rep = valori.join("-");
   }
   const commento = getSavedInput("commento") || "";
 
   inviaEvento({
     tipo: "Allenamento",
+    blocco: currentBloccoNumero,
     giorno: currentDettaglio.giorno,
     gruppoMuscolare: currentDettaglio.gruppo,
     esercizio: currentDettaglio.esercizio,
@@ -608,6 +689,7 @@ function inviaRisultatoCorrente() {
 function inviaModifica(giorno, gruppo, esercizio, descrizioneModifica) {
   inviaEvento({
     tipo: "Modifica scheda",
+    blocco: currentBloccoNumero,
     giorno, gruppoMuscolare: gruppo, esercizio,
     commento: descrizioneModifica
   });
