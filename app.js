@@ -21,10 +21,24 @@ async function init() {
   clienteCsvUrl = params.get("data");
   clienteNome = params.get("cliente") || "";
 
+  if (clienteCsvUrl) {
+    // primo accesso da browser: salvo per quando l'app viene riaperta dall'icona
+    localStorage.setItem("gm_ultimo_link", JSON.stringify({ data: clienteCsvUrl, cliente: clienteNome }));
+  } else {
+    // riapertura dall'icona: il telefono spesso perde i parametri dopo "?"
+    // recupero l'ultimo link salvato la prima volta
+    const ultimo = localStorage.getItem("gm_ultimo_link");
+    if (ultimo) {
+      const obj = JSON.parse(ultimo);
+      clienteCsvUrl = obj.data;
+      clienteNome = obj.cliente;
+    }
+  }
+
   if (!clienteCsvUrl) {
     showScreen("screen-error");
     document.getElementById("error-message").textContent =
-      "Manca il collegamento alla tua scheda. Contatta il tuo personal trainer per ricevere il link corretto.";
+      "Manca il collegamento alla tua scheda. Apri prima il link ricevuto dal tuo personal trainer da un browser (non dall'icona), poi salvalo sulla home.";
     return;
   }
 
