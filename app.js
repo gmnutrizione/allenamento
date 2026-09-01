@@ -248,36 +248,11 @@ function renderGruppi(giorno, gruppi) {
         listWrap.appendChild(renderRigaEsercizio(ex, giorno, gruppo, chiave, ex.Bloccato === "si", editMode, () => draw()));
       });
 
-      // esercizi aggiunti manualmente (sostituzioni o aggiunte)
+      // esercizi aggiunti manualmente (sostituzioni)
       elencoAggiunti(giorno, gruppo).forEach(agg => {
         const chiave = chiaveEsercizio(giorno, gruppo, agg.esercizio);
         listWrap.appendChild(renderRigaEsercizio(agg, giorno, gruppo, chiave, false, editMode, () => draw()));
       });
-
-      // suggerimenti (solo in modalità modifica)
-      if (editMode) {
-        const attivi = new Set([
-          ...originali.filter(ex => !isRimosso(chiaveEsercizio(giorno, gruppo, ex.Esercizio))).map(ex => ex.Esercizio),
-          ...elencoAggiunti(giorno, gruppo).map(a => a.esercizio)
-        ]);
-        const suggerimenti = raccogliSuggerimenti(originali, attivi);
-        suggerimenti.forEach(sugg => {
-          const row = document.createElement("div");
-          row.className = "suggestion-row";
-          row.innerHTML = `
-            <div>
-              <p class="exercise-name">${sugg.esercizio}</p>
-              <p class="exercise-sub">${sugg.Serie} x ${sugg.Ripetizioni}</p>
-            </div>
-            <span class="icon-add">&#8853;</span>
-          `;
-          row.addEventListener("click", () => {
-            aggiungiEsercizio(giorno, gruppo, sugg);
-            draw();
-          });
-          listWrap.appendChild(row);
-        });
-      }
     }
 
     header.querySelector(".group-toggle").addEventListener("click", () => {
@@ -328,7 +303,6 @@ function renderRigaEsercizio(ex, giorno, gruppo, chiave, bloccato, editMode, onC
   } else {
     iconsHtml = `<div class="edit-icons">
       <span class="icon-btn icon-replace" data-action="sostituisci">&#8635;</span>
-      <span class="icon-btn icon-remove" data-action="togli">&minus;</span>
     </div>`;
   }
 
@@ -346,11 +320,6 @@ function renderRigaEsercizio(ex, giorno, gruppo, chiave, bloccato, editMode, onC
     row.querySelector('[data-action="sostituisci"]').addEventListener("click", ev => {
       ev.stopPropagation();
       sostituisciEsercizio(giorno, gruppo, ex, nome);
-      onChange();
-    });
-    row.querySelector('[data-action="togli"]').addEventListener("click", ev => {
-      ev.stopPropagation();
-      togliEsercizio(giorno, gruppo, nome, ex);
       onChange();
     });
   }
@@ -418,6 +387,7 @@ function apriDettaglio(ex, giorno, gruppo) {
     ripetizioni: ex.Ripetizioni,
     recupero: parseInt(ex.Recupero) || 0,
     tipo: (ex.Tipo || "pesi").toLowerCase(),
+    kgPrevisti: (ex.Kg || "").toString().trim(),
     valori: [] // riempito sotto
   };
 
@@ -432,6 +402,9 @@ function apriDettaglio(ex, giorno, gruppo) {
     : `<div class="video-placeholder"></div>`;
 
   document.getElementById("detail-sets-reps").textContent = currentDettaglio.serie + " x " + currentDettaglio.ripetizioni;
+  document.getElementById("target-kg").textContent = currentDettaglio.kgPrevisti
+    ? (currentDettaglio.kgPrevisti + " kg")
+    : "";
 
   renderSetsInputs();
   setupRecTimer(currentDettaglio.recupero);
@@ -487,8 +460,6 @@ function renderSetsInputs() {
   wrap.innerHTML = "";
   const corpoLibero = currentDettaglio.tipo.includes("corpo");
   const savedValori = getSavedInput("valori") || [];
-  const savedModo = getSavedInput("modo") || "kg";
-  currentDettaglio.modo = corpoLibero ? "spuntato" : savedModo;
 
   for (let i = 1; i <= currentDettaglio.serie; i++) {
     const row = document.createElement("div");
@@ -507,9 +478,8 @@ function renderSetsInputs() {
       row.innerHTML = `
         <span class="set-label">Serie ${i}</span>
         <div class="set-input-group">
-          ${i === 1 ? `<span class="set-switch" id="switch-modo">${currentDettaglio.modo === "kg" ? "Kg" : "Rep"}</span>` : ""}
           <input type="text" inputmode="numeric" placeholder="0" data-idx="${i - 1}" value="${valore}">
-          ${i === 1 ? "" : `<span class="set-unit">${currentDettaglio.modo === "kg" ? "kg" : "rep"}</span>`}
+          <span class="set-unit">rep</span>
         </div>
       `;
     }
@@ -522,15 +492,6 @@ function renderSetsInputs() {
   wrap.querySelectorAll("input[type=checkbox]").forEach(inp => {
     inp.addEventListener("change", salvaValoriCorrenti);
   });
-
-  const switchBtn = document.getElementById("switch-modo");
-  if (switchBtn) {
-    switchBtn.addEventListener("click", () => {
-      currentDettaglio.modo = currentDettaglio.modo === "kg" ? "rep" : "kg";
-      saveInput("modo", currentDettaglio.modo);
-      renderSetsInputs();
-    });
-  }
 }
 
 function salvaValoriCorrenti() {
@@ -621,14 +582,12 @@ function inviaRisultatoCorrente() {
     return;
   }
   const valori = getSavedInput("valori") || [];
-  const modo = currentDettaglio.modo;
   let serieRipetizioni = currentDettaglio.serie + "x" + currentDettaglio.ripetizioni;
   let kg = "", rep = "";
   if (currentDettaglio.tipo.includes("corpo")) {
-    kg = valori.join("-");
-  } else if (modo === "kg") {
-    kg = valori.join("-");
+    rep = valori.join("-");
   } else {
+    kg = currentDettaglio.kgPrevisti || "";
     rep = valori.join("-");
   }
   const commento = getSavedInput("commento") || "";
