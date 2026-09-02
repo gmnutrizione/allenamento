@@ -285,16 +285,24 @@ body {
 .target-kg { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin: 0; text-align: center; flex: 1; overflow-wrap: break-word; }
 .rec-static { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin: 0; flex-shrink: 0; }
 
+.timer-row { display: flex; gap: 10px; margin-bottom: 18px; }
 .timer-btn {
-  width: 100%;
+  flex: 1;
   background: var(--terracotta);
   color: white;
   border: none; border-radius: 12px;
   padding: 16px;
   font-size: 17px; font-weight: 700;
   cursor: pointer;
-  margin-bottom: 18px;
   display: flex; align-items: center; justify-content: center; gap: 12px;
+}
+.timer-stop-btn {
+  width: 56px; flex-shrink: 0;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: 12px;
+  font-size: 16px;
+  cursor: pointer;
 }
 .timer-time { font-variant-numeric: tabular-nums; line-height: 1; }
 .timer-icon-pause { display: flex; align-items: center; gap: 4px; }
@@ -328,10 +336,10 @@ body {
 
 .set-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .set-label { font-size: 15px; font-weight: 600; color: var(--text-primary); }
-.set-input-group { display: flex; align-items: center; gap: 8px; }
+.set-input-group { display: flex; align-items: center; gap: 6px; }
 .set-input-group input[type="text"] {
-  width: 72px; text-align: right;
-  padding: 10px 10px; font-size: 16px;
+  width: 58px; text-align: right;
+  padding: 10px 8px; font-size: 15px;
   border: 1px solid var(--border); border-radius: 10px;
 }
 .set-unit { font-size: 14px; color: var(--text-secondary); }

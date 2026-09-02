@@ -139,6 +139,17 @@ function caricoColumns(row) {
     .sort((a, b) => a.n - b.n);
 }
 
+function caricoColonnaSessione(row, sessione) {
+  const cols = caricoColumns(row);
+  const trovata = cols.find(c => c.n === sessione);
+  return trovata ? (row[trovata.key] || "").trim() : "";
+}
+
+function estraiKgDaCarico(testo) {
+  const m = (testo || "").match(/(\d+(?:[.,]\d+)?)\s*kg/i);
+  return m ? m[1].replace(",", ".") : "";
+}
+
 function ultimoCarico(row) {
   const cols = caricoColumns(row);
   for (let i = cols.length - 1; i >= 0; i--) {
@@ -603,7 +614,7 @@ function apriDettaglio(ex, giorno, gruppo) {
     ripetizioni: ex.Rep,
     recupero: parseRecuperoSecondi(ex.Recupero),
     tipo: (ex.Tipo || "pesi").toLowerCase(),
-    caricoPrevisto: ultimoCarico(ex),
+    caricoPrevisto: caricoColonnaSessione(ex, currentSessione) || ultimoCarico(ex),
     valori: [] // riempito sotto
   };
 
@@ -746,14 +757,16 @@ function renderSetsInputs() {
   const wrap = document.getElementById("sets-inputs");
   wrap.innerHTML = "";
   const corpoLibero = currentDettaglio.tipo.includes("corpo");
-  const savedValori = getSavedInput("valori") || [];
+  const savedRep = getSavedInput("valori") || [];
+  const savedKg = getSavedInput("valoriKg") || [];
+  const kgSuggerito = estraiKgDaCarico(currentDettaglio.caricoPrevisto);
 
   for (let i = 1; i <= currentDettaglio.serie; i++) {
     const row = document.createElement("div");
     row.className = "set-row";
 
     if (corpoLibero) {
-      const checked = savedValori[i - 1] === "fatto" ? "checked" : "";
+      const checked = savedRep[i - 1] === "fatto" ? "checked" : "";
       row.innerHTML = `
         <span class="set-label">Serie ${i}</span>
         <div class="set-input-group">
@@ -761,11 +774,14 @@ function renderSetsInputs() {
         </div>
       `;
     } else {
-      const valore = savedValori[i - 1] || "";
+      const valoreRep = savedRep[i - 1] || "";
+      const valoreKg = savedKg[i - 1] !== undefined ? savedKg[i - 1] : (kgSuggerito || "");
       row.innerHTML = `
         <span class="set-label">Serie ${i}</span>
         <div class="set-input-group">
-          <input type="text" inputmode="numeric" placeholder="0" data-idx="${i - 1}" value="${valore}">
+          <input type="text" inputmode="decimal" placeholder="0" class="kg-input" data-idx="${i - 1}" value="${valoreKg}">
+          <span class="set-unit">Kg</span>
+          <input type="text" inputmode="numeric" placeholder="0" class="rep-input" data-idx="${i - 1}" value="${valoreRep}">
           <span class="set-unit">rep</span>
         </div>
       `;
@@ -783,17 +799,24 @@ function renderSetsInputs() {
 
 function salvaValoriCorrenti() {
   const corpoLibero = currentDettaglio.tipo.includes("corpo");
-  const valori = [];
   if (corpoLibero) {
+    const valori = [];
     document.querySelectorAll("#sets-inputs input[type=checkbox]").forEach(inp => {
       valori[parseInt(inp.dataset.idx)] = inp.checked ? "fatto" : "non fatto";
     });
+    saveInput("valori", valori);
   } else {
-    document.querySelectorAll("#sets-inputs input[type=text]").forEach(inp => {
-      valori[parseInt(inp.dataset.idx)] = inp.value;
+    const valoriRep = [];
+    document.querySelectorAll("#sets-inputs .rep-input").forEach(inp => {
+      valoriRep[parseInt(inp.dataset.idx)] = inp.value;
     });
+    const valoriKg = [];
+    document.querySelectorAll("#sets-inputs .kg-input").forEach(inp => {
+      valoriKg[parseInt(inp.dataset.idx)] = inp.value;
+    });
+    saveInput("valori", valoriRep);
+    saveInput("valoriKg", valoriKg);
   }
-  saveInput("valori", valori);
 }
 
 document.getElementById("comment-input").addEventListener("input", e => {
@@ -805,23 +828,25 @@ document.getElementById("comment-input").addEventListener("input", e => {
 // ============================================================
 let recInterval = null;
 let recRunning = false;
-let audioCtx = null;
 
 function sbloccaAudio() {
-  if (!audioCtx) {
-    try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) { return; }
-  }
-  if (audioCtx.state === "suspended") {
-    audioCtx.resume();
-  }
+  const audio = document.getElementById("beep-audio");
+  if (!audio || audio.dataset.unlocked === "1") return;
+  const volumeOriginale = audio.volume;
+  audio.volume = 0;
+  audio.play().then(() => {
+    audio.pause();
+    audio.currentTime = 0;
+    audio.volume = volumeOriginale;
+    audio.dataset.unlocked = "1";
+  }).catch(() => {});
 }
 
 function setupRecTimer(secondiTotali) {
   clearInterval(recInterval);
   recRunning = false;
   const btn = document.getElementById("timer-btn");
+  const stopBtn = document.getElementById("timer-stop-btn");
   let tempoRimasto = secondiTotali;
   let avviato = false;
 
@@ -834,12 +859,14 @@ function setupRecTimer(secondiTotali) {
 
   function mostraIdle() {
     btn.innerHTML = "Avvia timer";
+    stopBtn.style.display = "none";
   }
   function mostraConteggio(inPausa) {
     const icona = inPausa
       ? '<span class="timer-icon-play"></span>'
       : '<span class="timer-icon-pause"><span></span><span></span></span>';
     btn.innerHTML = '<span class="timer-time">' + formatTempo(tempoRimasto) + '</span>' + icona;
+    stopBtn.style.display = "block";
   }
   function avvia() {
     recRunning = true;
@@ -858,6 +885,13 @@ function setupRecTimer(secondiTotali) {
       }
     }, 1000);
   }
+  function ferma() {
+    clearInterval(recInterval);
+    recRunning = false;
+    avviato = false;
+    tempoRimasto = secondiTotali;
+    mostraIdle();
+  }
 
   mostraIdle();
 
@@ -874,23 +908,16 @@ function setupRecTimer(secondiTotali) {
       avvia();
     }
   };
+
+  stopBtn.onclick = ferma;
 }
 
 function suonaFineTimer() {
+  const audio = document.getElementById("beep-audio");
+  if (!audio) return;
   try {
-    sbloccaAudio();
-    if (!audioCtx) return;
-    [880, 1046].forEach((freq, i) => {
-      setTimeout(() => {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.type = "sine"; osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
-      }, i * 250);
-    });
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
   } catch (e) {}
 }
 
@@ -909,7 +936,9 @@ function inviaRisultatoCorrente() {
   if (currentDettaglio.tipo.includes("corpo")) {
     rep = valori.join("-");
   } else {
-    kg = currentDettaglio.caricoPrevisto || "";
+    const valoriKg = getSavedInput("valoriKg") || [];
+    const kgCompilati = valoriKg.some(v => v && v.trim() !== "");
+    kg = kgCompilati ? valoriKg.join("-") : (currentDettaglio.caricoPrevisto || "");
     rep = valori.join("-");
   }
   const commento = getSavedInput("commento") || "";
