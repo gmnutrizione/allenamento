@@ -283,15 +283,23 @@ body {
 
 .timer-btn {
   width: 100%;
-  background: var(--terracotta-chiaro);
-  color: var(--terracotta);
+  background: var(--terracotta);
+  color: white;
   border: none; border-radius: 12px;
   padding: 16px;
   font-size: 17px; font-weight: 700;
   cursor: pointer;
   margin-bottom: 18px;
 }
-.timer-btn.attivo { background: var(--terracotta); color: white; }
+.timer-time { font-variant-numeric: tabular-nums; }
+.timer-icon-pause { display: inline-flex; gap: 4px; margin-left: 12px; vertical-align: middle; }
+.timer-icon-pause span { display: inline-block; width: 4px; height: 16px; background: white; border-radius: 1px; }
+.timer-icon-play {
+  display: inline-block; vertical-align: middle; margin-left: 12px;
+  width: 0; height: 0;
+  border-top: 8px solid transparent; border-bottom: 8px solid transparent;
+  border-left: 13px solid white;
+}
 
 .set-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .set-label { font-size: 15px; font-weight: 600; color: var(--text-primary); }

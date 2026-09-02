@@ -521,6 +521,18 @@ function aggiungiEsercizio(giorno, gruppo, sugg) {
 // ============================================================
 // DETTAGLIO ESERCIZIO
 // ============================================================
+function parseRecuperoSecondi(testo) {
+  const str = (testo || "").toString().trim();
+  if (!str) return 0;
+  const m = str.match(/(\d+(?:[.,]\d+)?)\s*('{1,2})/);
+  if (m) {
+    const num = parseFloat(m[1].replace(",", "."));
+    return m[2] === "'" ? Math.round(num * 60) : Math.round(num);
+  }
+  const soloNumero = str.match(/\d+/);
+  return soloNumero ? parseInt(soloNumero[0]) : 0;
+}
+
 function apriDettaglio(ex, giorno, gruppo) {
   const nome = ex.Esercizio || ex.esercizio;
   const info = archivio[nome.trim()] || { video: "", descrizione: "" };
@@ -530,7 +542,7 @@ function apriDettaglio(ex, giorno, gruppo) {
     giorno, gruppo, esercizio: nome,
     serie: parseInt(ex.Serie) || 1,
     ripetizioni: ex.Rep,
-    recupero: parseInt(ex.Recupero) || 0,
+    recupero: parseRecuperoSecondi(ex.Recupero),
     tipo: (ex.Tipo || "pesi").toLowerCase(),
     caricoPrevisto: ultimoCarico(ex),
     valori: [] // riempito sotto
@@ -549,7 +561,7 @@ function apriDettaglio(ex, giorno, gruppo) {
 
   document.getElementById("detail-sets-reps").textContent = currentDettaglio.serie + " x " + currentDettaglio.ripetizioni;
   document.getElementById("target-kg").textContent = currentDettaglio.caricoPrevisto || "";
-  document.getElementById("rec-static").textContent = "Rec " + currentDettaglio.recupero + "''";
+  document.getElementById("rec-static").textContent = "Rec " + ((ex.Recupero || "").trim() || (currentDettaglio.recupero + "''"));
 
   renderSetsInputs();
   setupRecTimer(currentDettaglio.recupero);
@@ -727,32 +739,54 @@ function setupRecTimer(secondiTotali) {
   recRunning = false;
   const btn = document.getElementById("timer-btn");
   let tempoRimasto = secondiTotali;
+  let avviato = false;
 
-  btn.classList.remove("attivo");
-  btn.textContent = "Avvia timer";
+  function formatTempo(s) {
+    const h = Math.floor(s / 3600).toString().padStart(2, "0");
+    const m = Math.floor((s % 3600) / 60).toString().padStart(2, "0");
+    const sec = Math.floor(s % 60).toString().padStart(2, "0");
+    return h + ":" + m + ":" + sec;
+  }
+
+  function mostraIdle() {
+    btn.innerHTML = "Avvia timer";
+  }
+  function mostraConteggio(inPausa) {
+    const icona = inPausa
+      ? '<span class="timer-icon-play"></span>'
+      : '<span class="timer-icon-pause"><span></span><span></span></span>';
+    btn.innerHTML = '<span class="timer-time">' + formatTempo(tempoRimasto) + '</span>' + icona;
+  }
+  function avvia() {
+    recRunning = true;
+    mostraConteggio(false);
+    recInterval = setInterval(() => {
+      tempoRimasto -= 1;
+      if (tempoRimasto <= 0) {
+        clearInterval(recInterval);
+        recRunning = false;
+        avviato = false;
+        tempoRimasto = secondiTotali;
+        mostraIdle();
+        suonaFineTimer();
+      } else {
+        mostraConteggio(false);
+      }
+    }, 1000);
+  }
+
+  mostraIdle();
 
   btn.onclick = () => {
-    if (!recRunning) {
-      recRunning = true;
-      btn.classList.add("attivo");
-      recInterval = setInterval(() => {
-        tempoRimasto -= 1;
-        if (tempoRimasto <= 0) {
-          clearInterval(recInterval);
-          recRunning = false;
-          tempoRimasto = secondiTotali;
-          btn.classList.remove("attivo");
-          btn.textContent = "Avvia timer";
-          suonaFineTimer();
-        } else {
-          btn.textContent = tempoRimasto + "''";
-        }
-      }, 1000);
-    } else {
+    if (!avviato) {
+      avviato = true;
+      avvia();
+    } else if (recRunning) {
       recRunning = false;
       clearInterval(recInterval);
-      btn.classList.remove("attivo");
-      btn.textContent = "Avvia timer";
+      mostraConteggio(true);
+    } else {
+      avvia();
     }
   };
 }
