@@ -132,7 +132,7 @@ function parseBloccoNum(s) {
 function caricoColumns(row) {
   return Object.keys(row)
     .map(k => {
-      const m = k.match(/^Carico\s+(\d+)\s*sett/i);
+      const m = k.match(/^Carico\s*(\d+)\s*sett/i);
       return m ? { n: parseInt(m[1]), key: k } : null;
     })
     .filter(Boolean)
@@ -146,8 +146,12 @@ function caricoColonnaSessione(row, sessione) {
 }
 
 function estraiKgDaCarico(testo) {
-  const m = (testo || "").match(/(\d+(?:[.,]\d+)?)\s*kg/i);
-  return m ? m[1].replace(",", ".") : "";
+  const str = (testo || "").toString().trim();
+  if (!str) return "";
+  const conUnita = str.match(/(\d+(?:[.,]\d+)?)\s*kg/i);
+  if (conUnita) return conUnita[1].replace(",", ".");
+  const soloNumero = str.match(/(\d+(?:[.,]\d+)?)/);
+  return soloNumero ? soloNumero[1].replace(",", ".") : "";
 }
 
 function ultimoCarico(row) {
