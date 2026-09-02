@@ -660,7 +660,6 @@ function apriDettaglio(ex, giorno, gruppo) {
     : `<div class="video-placeholder"></div>`;
 
   document.getElementById("detail-sets-reps").textContent = currentDettaglio.serie + " x " + currentDettaglio.ripetizioni;
-  document.getElementById("target-kg").textContent = currentDettaglio.caricoPrevisto || "";
   document.getElementById("rec-static").textContent = "Rec " + ((ex.Recupero || "").trim() || (currentDettaglio.recupero + "''"));
 
   renderSetsInputs();
@@ -888,14 +887,18 @@ function setupRecTimer(secondiTotali) {
 
   function mostraIdle() {
     btn.innerHTML = "Avvia timer";
+    btn.classList.remove("attivo");
     stopBtn.style.display = "none";
+    stopBtn.classList.remove("attivo");
   }
   function mostraConteggio(inPausa) {
     const icona = inPausa
       ? '<span class="timer-icon-play"></span>'
       : '<span class="timer-icon-pause"><span></span><span></span></span>';
     btn.innerHTML = '<span class="timer-time">' + formatTempo(tempoRimasto) + '</span>' + icona;
-    stopBtn.style.display = "block";
+    btn.classList.add("attivo");
+    stopBtn.style.display = "flex";
+    stopBtn.classList.add("attivo");
   }
   function avvia() {
     recRunning = true;
