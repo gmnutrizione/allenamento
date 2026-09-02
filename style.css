@@ -290,28 +290,47 @@ body {
   flex: 1;
   background: var(--terracotta);
   color: white;
-  border: none; border-radius: 12px;
+  border: 1px solid var(--terracotta);
+  border-radius: 12px;
   padding: 16px;
   font-size: 17px; font-weight: 700;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 12px;
 }
+.timer-btn.attivo {
+  background: white;
+  color: #C96A4A;
+  border: 1px solid #F2DCD3;
+}
 .timer-stop-btn {
-  width: 56px; flex-shrink: 0;
+  width: 64px; flex-shrink: 0;
   background: var(--surface-1);
-  color: var(--text-secondary);
   border: 1px solid var(--border); border-radius: 12px;
-  font-size: 16px;
   cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.timer-stop-btn .stop-square {
+  width: 22px; height: 22px;
+  background: var(--text-muted);
+  border-radius: 4px;
+  opacity: 0.5;
+}
+.timer-stop-btn.attivo {
+  background: var(--terracotta);
+  border-color: var(--terracotta);
+}
+.timer-stop-btn.attivo .stop-square {
+  background: white;
+  opacity: 1;
 }
 .timer-time { font-variant-numeric: tabular-nums; line-height: 1; }
 .timer-icon-pause { display: flex; align-items: center; gap: 4px; }
-.timer-icon-pause span { display: inline-block; width: 4px; height: 16px; background: white; border-radius: 1px; }
+.timer-icon-pause span { display: inline-block; width: 4px; height: 16px; background: currentColor; border-radius: 1px; }
 .timer-icon-play {
   display: inline-block;
   width: 0; height: 0;
   border-top: 8px solid transparent; border-bottom: 8px solid transparent;
-  border-left: 13px solid white;
+  border-left: 13px solid currentColor;
 }
 
 .nav-esercizio-row { display: flex; gap: 10px; margin-top: 8px; }

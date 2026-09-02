@@ -864,14 +864,18 @@ let recRunning = false;
 function sbloccaAudio() {
   const audio = document.getElementById("beep-audio");
   if (!audio || audio.dataset.unlocked === "1") return;
-  const volumeOriginale = audio.volume;
-  audio.volume = 0;
-  audio.play().then(() => {
-    audio.pause();
-    audio.currentTime = 0;
-    audio.volume = volumeOriginale;
-    audio.dataset.unlocked = "1";
-  }).catch(() => {});
+  audio.muted = true;
+  const p = audio.play();
+  if (p && p.then) {
+    p.then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+      audio.dataset.unlocked = "1";
+    }).catch(() => {
+      audio.muted = false;
+    });
+  }
 }
 
 function setupRecTimer(secondiTotali) {
