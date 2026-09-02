@@ -353,6 +353,8 @@ function apriSessioni(giorno) {
     });
     list.appendChild(card);
   }
+
+  showScreen("screen-sessioni");
 }
 
 function openGiorno(giorno) {
@@ -387,7 +389,6 @@ function concludiAllenamento(giorno) {
     commento: "Allenamento " + currentSessione + " concluso"
   });
   apriSessioni(giorno);
-  showScreen("screen-sessioni");
 }
 
 // ============================================================
