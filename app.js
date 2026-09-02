@@ -288,7 +288,7 @@ function buildGiorni() {
   const dati = giorni.map(giorno => {
     const rows = esercizi.filter(r => r.Giorno === giorno);
     const gruppi = [...new Set(rows.map(r => r["Gruppo muscolare"]).filter(Boolean))];
-    const totale = rows.length ? caricoColumns(rows[0]).length : 0;
+    const totale = rows.length ? Math.max(1, caricoColumns(rows[0]).length) : 0;
     const completate = getSessioniCompletate(giorno).length;
     const percentuale = totale > 0 ? Math.min(100, Math.round((completate / totale) * 100)) : 0;
     return { giorno, gruppi, rowsCount: rows.length, totale, completate, percentuale };
@@ -327,7 +327,7 @@ function buildGiorni() {
 function apriSessioni(giorno) {
   currentGiorno = giorno;
   const rows = esercizi.filter(r => r.Giorno === giorno);
-  const totale = rows.length ? caricoColumns(rows[0]).length : 1;
+  const totale = rows.length ? Math.max(1, caricoColumns(rows[0]).length) : 1;
   const completate = getSessioniCompletate(giorno);
 
   document.getElementById("sessioni-title").textContent = giorno;
