@@ -333,10 +333,17 @@ function apriSessioni(giorno) {
   document.getElementById("sessioni-title").textContent = giorno;
   const list = document.getElementById("sessioni-list");
   list.innerHTML = "";
+
+  let prossimaSessione = null;
+  for (let i = 1; i <= totale; i++) {
+    if (!completate.includes(i)) { prossimaSessione = i; break; }
+  }
+
   for (let i = 1; i <= totale; i++) {
     const fatto = completate.includes(i);
+    const evidenziato = i === prossimaSessione;
     const card = document.createElement("div");
-    card.className = "day-card";
+    card.className = "day-card" + (evidenziato ? " day-card-next" : "");
     card.innerHTML = `
       <div class="day-card-top">
         <div class="day-icon-box${fatto ? " completato" : ""}">${fatto ? "&#10003;" : i}</div>
@@ -363,6 +370,7 @@ function openGiorno(giorno) {
   const gruppi = [...new Set(rows.map(r => r["Gruppo muscolare"]).filter(Boolean))];
 
   document.getElementById("day-header-title").textContent = giorno;
+  document.getElementById("day-header-sessione").textContent = "Allenamento " + currentSessione;
   const chipRow = document.getElementById("day-chips");
   chipRow.innerHTML = gruppi.map(g => `<span class="chip">${g}</span>`).join("");
 
@@ -388,7 +396,8 @@ function concludiAllenamento(giorno) {
     giorno: giorno,
     commento: "Allenamento " + currentSessione + " concluso"
   });
-  apriSessioni(giorno);
+  buildGiorni();
+  showScreen("screen-giorni");
 }
 
 // ============================================================
@@ -796,6 +805,18 @@ document.getElementById("comment-input").addEventListener("input", e => {
 // ============================================================
 let recInterval = null;
 let recRunning = false;
+let audioCtx = null;
+
+function sbloccaAudio() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) { return; }
+  }
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+}
 
 function setupRecTimer(secondiTotali) {
   clearInterval(recInterval);
@@ -841,6 +862,7 @@ function setupRecTimer(secondiTotali) {
   mostraIdle();
 
   btn.onclick = () => {
+    sbloccaAudio();
     if (!avviato) {
       avviato = true;
       avvia();
@@ -856,16 +878,17 @@ function setupRecTimer(secondiTotali) {
 
 function suonaFineTimer() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    sbloccaAudio();
+    if (!audioCtx) return;
     [880, 1046].forEach((freq, i) => {
       setTimeout(() => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
         osc.type = "sine"; osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.2, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-        osc.start(); osc.stop(ctx.currentTime + 0.5);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
       }, i * 250);
     });
   } catch (e) {}

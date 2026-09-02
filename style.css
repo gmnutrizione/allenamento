@@ -177,6 +177,10 @@ body {
   position: absolute; top: 20px; left: 58px;
   color: white; font-weight: 600; font-size: 17px; margin: 0;
 }
+.day-header-sessione {
+  position: absolute; top: 42px; left: 58px;
+  color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 500;
+}
 .day-header .back-arrow {
   position: absolute; top: 12px; left: 12px;
   width: 36px; height: 36px; font-size: 22px;
@@ -192,25 +196,25 @@ body {
 }
 
 .group-block { margin-bottom: 18px; }
-.group-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.group-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .group-name {
-  font-weight: 600; font-size: 13px;
+  font-weight: 700; font-size: 15px;
   text-transform: uppercase; letter-spacing: 0.03em;
   color: var(--text-secondary); margin: 0;
 }
-.group-toggle { font-size: 12px; font-weight: 600; color: var(--verde); cursor: pointer; }
+.group-toggle { font-size: 14px; font-weight: 600; color: var(--verde); cursor: pointer; }
 
 .exercise-row {
   display: flex; justify-content: space-between; align-items: center;
   background: var(--surface-1);
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 14px;
   margin-bottom: 8px;
   cursor: pointer;
 }
-.exercise-name { font-weight: 500; font-size: 14px; margin: 0; }
-.exercise-sub { font-size: 12px; color: var(--text-secondary); margin: 2px 0 0; }
-.exercise-chevron { font-size: 16px; color: var(--text-muted); }
+.exercise-name { font-weight: 600; font-size: 16px; margin: 0; }
+.exercise-sub { font-size: 14px; color: var(--text-secondary); margin: 3px 0 0; }
+.exercise-chevron { font-size: 18px; color: var(--text-muted); }
 
 .edit-icons { display: flex; justify-content: flex-end; gap: 6px; min-width: 58px; }
 .icon-btn {
