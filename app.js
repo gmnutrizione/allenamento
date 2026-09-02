@@ -11,6 +11,7 @@ let archivio = {};        // nome esercizio -> {video, descrizione, alternative[
 let fotoGruppi = {};      // gruppo muscolare -> url foto
 let giorni = [];          // elenco ordinato dei giorni
 let currentGiorno = null;
+let currentSessione = 1;
 let currentDettaglio = null; // {giorno, gruppo, esercizio, ...}
 let editState = {};       // salvato in localStorage, per cliente
 
@@ -204,14 +205,25 @@ function resetAllenamenti() {
     alert("Codice non corretto.");
     return;
   }
-  if (!confirm("Sicuro di voler azzerare da 0 tutti gli allenamenti completati di questo blocco?")) return;
+  if (!confirm("Sicuro di voler azzerare da 0 tutti gli allenamenti (rep, fatica, commenti) di questo blocco?")) return;
 
   const giorniBlocco = [...new Set(
     eserciziTotali.filter(r => parseBloccoNum(r.Blocco) === currentBloccoNumero).map(r => r.Giorno)
   )];
-  giorniBlocco.forEach(g => localStorage.removeItem(completateKey(g)));
+  giorniBlocco.forEach(g => localStorage.removeItem(sessioniCompletateKey(g)));
 
-  alert("Allenamenti azzerati.");
+  // rimuovo tutte le chiavi di input (rep/fatica/commento) che appartengono
+  // a uno di questi giorni, per qualunque gruppo/esercizio/sessione
+  const daRimuovere = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith(storageKey("input_"))) continue;
+    const appartieneAlBlocco = giorniBlocco.some(g => k.startsWith(storageKey("input_" + g + "|")));
+    if (appartieneAlBlocco) daRimuovere.push(k);
+  }
+  daRimuovere.forEach(k => localStorage.removeItem(k));
+
+  alert("Allenamenti azzerati completamente.");
   buildBlocchi();
 }
 
@@ -226,11 +238,14 @@ function showScreen(id) {
 document.addEventListener("click", e => {
   const back = e.target.closest("[data-back]");
   if (back) {
+    const target = back.dataset.back;
     // se stiamo uscendo dal dettaglio, invia i risultati di quell'esercizio
-    if (back.dataset.back === "screen-esercizi" && currentDettaglio) {
+    if (target === "screen-esercizi" && currentDettaglio) {
       inviaRisultatoCorrente();
     }
-    showScreen(back.dataset.back);
+    if (target === "screen-giorni") buildGiorni();
+    if (target === "screen-sessioni" && currentGiorno) apriSessioni(currentGiorno);
+    showScreen(target);
   }
   const catCard = e.target.closest(".category-card");
   if (catCard && catCard.dataset.category === "palestra") {
@@ -249,16 +264,19 @@ document.addEventListener("visibilitychange", () => {
 // ============================================================
 // GIORNI
 // ============================================================
-function completateKey(giorno) {
-  return storageKey("completate_" + currentBloccoNumero + "_" + giorno);
+function sessioniCompletateKey(giorno) {
+  return storageKey("sessioni_completate_" + currentBloccoNumero + "_" + giorno);
 }
-function getCompletate(giorno) {
-  return parseInt(localStorage.getItem(completateKey(giorno))) || 0;
+function getSessioniCompletate(giorno) {
+  const raw = localStorage.getItem(sessioniCompletateKey(giorno));
+  return raw ? JSON.parse(raw) : [];
 }
-function incrementaCompletate(giorno) {
-  const n = getCompletate(giorno) + 1;
-  localStorage.setItem(completateKey(giorno), n);
-  return n;
+function segnaSessioneCompletata(giorno, sessione) {
+  const arr = getSessioniCompletate(giorno);
+  if (!arr.includes(sessione)) {
+    arr.push(sessione);
+    localStorage.setItem(sessioniCompletateKey(giorno), JSON.stringify(arr));
+  }
 }
 
 function buildGiorni() {
@@ -271,7 +289,7 @@ function buildGiorni() {
     const rows = esercizi.filter(r => r.Giorno === giorno);
     const gruppi = [...new Set(rows.map(r => r["Gruppo muscolare"]).filter(Boolean))];
     const totale = rows.length ? caricoColumns(rows[0]).length : 0;
-    const completate = getCompletate(giorno);
+    const completate = getSessioniCompletate(giorno).length;
     const percentuale = totale > 0 ? Math.min(100, Math.round((completate / totale) * 100)) : 0;
     return { giorno, gruppi, rowsCount: rows.length, totale, completate, percentuale };
   });
@@ -301,9 +319,40 @@ function buildGiorni() {
       </div>
       ${d.totale > 0 ? `<div class="day-progress"><div class="day-progress-fill" style="width:${d.percentuale}%;"></div></div>` : ""}
     `;
-    card.addEventListener("click", () => openGiorno(d.giorno));
+    card.addEventListener("click", () => apriSessioni(d.giorno));
     list.appendChild(card);
   });
+}
+
+function apriSessioni(giorno) {
+  currentGiorno = giorno;
+  const rows = esercizi.filter(r => r.Giorno === giorno);
+  const totale = rows.length ? caricoColumns(rows[0]).length : 1;
+  const completate = getSessioniCompletate(giorno);
+
+  document.getElementById("sessioni-title").textContent = giorno;
+  const list = document.getElementById("sessioni-list");
+  list.innerHTML = "";
+  for (let i = 1; i <= totale; i++) {
+    const fatto = completate.includes(i);
+    const card = document.createElement("div");
+    card.className = "day-card";
+    card.innerHTML = `
+      <div class="day-card-top">
+        <div class="day-icon-box${fatto ? " completato" : ""}">${fatto ? "&#10003;" : i}</div>
+        <div class="day-info">
+          <p class="day-name">Allenamento ${i}</p>
+          <p class="day-sub">${fatto ? "Completato" : "Da fare"}</p>
+        </div>
+        <span class="day-arrow">&#8250;</span>
+      </div>
+    `;
+    card.addEventListener("click", () => {
+      currentSessione = i;
+      openGiorno(giorno);
+    });
+    list.appendChild(card);
+  }
 }
 
 function openGiorno(giorno) {
@@ -330,15 +379,15 @@ function openGiorno(giorno) {
 }
 
 function concludiAllenamento(giorno) {
-  const numero = incrementaCompletate(giorno);
+  segnaSessioneCompletata(giorno, currentSessione);
   inviaEvento({
     tipo: "Giorno completato",
     blocco: currentBloccoNumero,
     giorno: giorno,
-    commento: "Allenamento numero " + numero + " concluso"
+    commento: "Allenamento " + currentSessione + " concluso"
   });
-  buildGiorni();
-  showScreen("screen-giorni");
+  apriSessioni(giorno);
+  showScreen("screen-sessioni");
 }
 
 // ============================================================
@@ -592,6 +641,7 @@ function vaiAValutazione() {
 }
 
 document.getElementById("prossimo-btn").addEventListener("click", prossimoEsercizio);
+document.getElementById("indietro-btn").addEventListener("click", esercizioPrecedente);
 
 function listaFlatGiorno(giorno) {
   const rows = esercizi.filter(r => r.Giorno === giorno);
@@ -610,6 +660,18 @@ function listaFlatGiorno(giorno) {
     });
   });
   return flat;
+}
+
+function esercizioPrecedente() {
+  if (!currentDettaglio) return;
+  const flat = listaFlatGiorno(currentDettaglio.giorno);
+  const idx = flat.findIndex(item => item.gruppo === currentDettaglio.gruppo && item.nome === currentDettaglio.esercizio);
+  if (idx > 0) {
+    const prev = flat[idx - 1];
+    apriDettaglio(prev.ex, prev.giorno, prev.gruppo);
+  } else {
+    showScreen("screen-esercizi");
+  }
 }
 
 function prossimoEsercizio() {
@@ -653,7 +715,7 @@ document.getElementById("desc-toggle").addEventListener("click", () => {
 });
 
 function inputKeyFor(dett) {
-  return dett.giorno + "|" + dett.gruppo + "|" + dett.esercizio;
+  return dett.giorno + "|" + dett.gruppo + "|" + dett.esercizio + "|s" + currentSessione;
 }
 function getSavedInput(campo) {
   if (!currentDettaglio) return null;

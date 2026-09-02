@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#085041">
 <link rel="apple-touch-icon" href="icon.png">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 
@@ -93,10 +93,21 @@
     </div>
   </div>
 
+  <!-- SCHERMATA: sessioni (i singoli allenamenti di un giorno) -->
+  <div id="screen-sessioni" class="screen">
+    <div class="page-pad">
+      <div class="top-bar">
+        <span class="back-arrow" data-back="screen-giorni">&#8592;</span>
+        <p class="page-title-inline" id="sessioni-title">Giorno</p>
+      </div>
+      <div class="day-list" id="sessioni-list"></div>
+    </div>
+  </div>
+
   <!-- SCHERMATA: esercizi -->
   <div id="screen-esercizi" class="screen">
     <div class="day-header" id="day-header">
-      <span class="back-arrow light" data-back="screen-giorni">&#8592;</span>
+      <span class="back-arrow light" data-back="screen-sessioni">&#8592;</span>
       <p class="day-header-title" id="day-header-title"></p>
       <div class="chip-row" id="day-chips"></div>
     </div>
@@ -129,7 +140,10 @@
       </div>
       <button class="timer-btn" id="timer-btn">Avvia timer</button>
       <div class="sets-inputs" id="sets-inputs"></div>
-      <button class="btn-avanti" id="avanti-btn">Avanti</button>
+      <div class="nav-esercizio-row">
+        <button class="btn-indietro" id="indietro-btn">&#8592;</button>
+        <button class="btn-avanti" id="avanti-btn">Avanti</button>
+      </div>
     </div>
   </div>
 
@@ -154,6 +168,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="config.js?v=2"></script>
-<script src="app.js?v=8"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>
