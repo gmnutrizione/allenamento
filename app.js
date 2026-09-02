@@ -250,10 +250,6 @@ document.addEventListener("click", e => {
   const back = e.target.closest("[data-back]");
   if (back) {
     const target = back.dataset.back;
-    // se stiamo uscendo dal dettaglio, invia i risultati di quell'esercizio
-    if (target === "screen-esercizi" && currentDettaglio) {
-      inviaRisultatoCorrente();
-    }
     if (target === "screen-giorni") buildGiorni();
     if (target === "screen-sessioni" && currentGiorno) apriSessioni(currentGiorno);
     showScreen(target);
@@ -262,13 +258,6 @@ document.addEventListener("click", e => {
   if (catCard && catCard.dataset.category === "palestra") {
     buildBlocchi();
     showScreen("screen-blocchi");
-  }
-});
-
-// invia anche se il cliente chiude/esce dall'app mentre è nel dettaglio
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden" && currentDettaglio) {
-    inviaRisultatoCorrente();
   }
 });
 
@@ -399,7 +388,48 @@ function openGiorno(giorno) {
   showScreen("screen-esercizi");
 }
 
+function getSavedInputRefs(giorno, gruppo, esercizio, campo) {
+  const chiave = giorno + "|" + gruppo + "|" + esercizio + "|s" + currentSessione;
+  const saved = localStorage.getItem(storageKey("input_" + chiave));
+  if (!saved) return null;
+  return JSON.parse(saved)[campo];
+}
+
 function concludiAllenamento(giorno) {
+  const flat = listaFlatGiorno(giorno);
+
+  flat.forEach(item => {
+    const valori = getSavedInputRefs(giorno, item.gruppo, item.nome, "valori") || [];
+    const valoriKg = getSavedInputRefs(giorno, item.gruppo, item.nome, "valoriKg") || [];
+    const commento = getSavedInputRefs(giorno, item.gruppo, item.nome, "commento") || "";
+    const rpe = getSavedInputRefs(giorno, item.gruppo, item.nome, "rpe");
+
+    const haDati = valori.some(v => v) || rpe || (commento && commento.trim());
+    if (!haDati) return;
+
+    const tipo = (item.ex.Tipo || "pesi").toLowerCase();
+    let kg = "", rep = "";
+    if (tipo.includes("corpo")) {
+      rep = valori.join("-");
+    } else {
+      const kgCompilati = valoriKg.some(v => v && v.trim() !== "");
+      kg = kgCompilati ? valoriKg.join("-") : (caricoColonnaSessione(item.ex, currentSessione) || ultimoCarico(item.ex) || "");
+      rep = valori.join("-");
+    }
+    const commentoCompleto = (rpe ? "Fatica: " + rpe + "/10. " : "") + commento;
+
+    inviaEvento({
+      tipo: "Allenamento",
+      blocco: currentBloccoNumero,
+      giorno: giorno,
+      gruppoMuscolare: item.gruppo,
+      esercizio: item.nome,
+      serieRipetizioni: (item.ex.Serie || "") + "x" + (item.ex.Rep || ""),
+      kg, rep,
+      commento: commentoCompleto
+    });
+  });
+
   segnaSessioneCompletata(giorno, currentSessione);
   inviaEvento({
     tipo: "Giorno completato",
@@ -699,8 +729,7 @@ function prossimoEsercizio() {
   const giorno = currentDettaglio.giorno;
   const gruppoCorrente = currentDettaglio.gruppo;
   const nomeCorrente = currentDettaglio.esercizio;
-
-  inviaRisultatoCorrente();
+  currentDettaglio = null;
 
   const flat = listaFlatGiorno(giorno);
   const idx = flat.findIndex(item => item.gruppo === gruppoCorrente && item.nome === nomeCorrente);
@@ -924,41 +953,6 @@ function suonaFineTimer() {
 // ============================================================
 // INVIO DATI VERSO GOOGLE SHEETS (Apps Script)
 // ============================================================
-function inviaRisultatoCorrente() {
-  if (!currentDettaglio) return;
-  if (typeof APPS_SCRIPT_URL === "undefined" || !APPS_SCRIPT_URL) {
-    currentDettaglio = null;
-    return;
-  }
-  const valori = getSavedInput("valori") || [];
-  let serieRipetizioni = currentDettaglio.serie + "x" + currentDettaglio.ripetizioni;
-  let kg = "", rep = "";
-  if (currentDettaglio.tipo.includes("corpo")) {
-    rep = valori.join("-");
-  } else {
-    const valoriKg = getSavedInput("valoriKg") || [];
-    const kgCompilati = valoriKg.some(v => v && v.trim() !== "");
-    kg = kgCompilati ? valoriKg.join("-") : (currentDettaglio.caricoPrevisto || "");
-    rep = valori.join("-");
-  }
-  const commento = getSavedInput("commento") || "";
-  const rpe = getSavedInput("rpe");
-  const commentoCompleto = (rpe ? "Fatica: " + rpe + "/10. " : "") + commento;
-
-  inviaEvento({
-    tipo: "Allenamento",
-    blocco: currentBloccoNumero,
-    giorno: currentDettaglio.giorno,
-    gruppoMuscolare: currentDettaglio.gruppo,
-    esercizio: currentDettaglio.esercizio,
-    serieRipetizioni,
-    kg, rep,
-    commento: commentoCompleto
-  });
-
-  currentDettaglio = null;
-}
-
 function inviaModifica(giorno, gruppo, esercizio, descrizioneModifica) {
   inviaEvento({
     tipo: "Modifica scheda",
