@@ -5,13 +5,13 @@
 // Il link della scheda del singolo cliente invece NON va qui:
 // viene passato nell'indirizzo dell'app (parametro ?data=...)
 
-const ARCHIVIO_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSfqWzHFYL-N3c5WSgFvkfQ0mR74tBO8SCwgf17Aarz8NYD7Tzm3ToMwJz-7neFa1wggmNtWB989QoR/pub?gid=251396579&single=true&output=csv";
+const ARCHIVIO_CSV_URL = "https://docs.google.com/spreadsheets/d/1M-6QGcdYz61884Q1AJQbD9ze361JqqXHNEjunUodZRk/gviz/tq?tqx=out:csv&gid=251396579";
 
-const FOTO_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSfqWzHFYL-N3c5WSgFvkfQ0mR74tBO8SCwgf17Aarz8NYD7Tzm3ToMwJz-7neFa1wggmNtWB989QoR/pub?gid=572585223&single=true&output=csv";
+const FOTO_CSV_URL = "https://docs.google.com/spreadsheets/d/1M-6QGcdYz61884Q1AJQbD9ze361JqqXHNEjunUodZRk/gviz/tq?tqx=out:csv&gid=572585223";
 
 // Elenco clienti (Codice, Cliente, Link scheda) - usato per capire, dal codice
 // inserito, quale scheda caricare. Cos\u00ec il link dell'app resta uguale per tutti.
-const CLIENTI_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSfqWzHFYL-N3c5WSgFvkfQ0mR74tBO8SCwgf17Aarz8NYD7Tzm3ToMwJz-7neFa1wggmNtWB989QoR/pub?gid=1615113886&single=true&output=csv";
+const CLIENTI_CSV_URL = "https://docs.google.com/spreadsheets/d/1M-6QGcdYz61884Q1AJQbD9ze361JqqXHNEjunUodZRk/gviz/tq?tqx=out:csv&gid=1615113886";
 
 // Link dell'App web (Google Apps Script) che riceve kg, rep, commenti
 // e le modifiche alla scheda, scrivendoli nel tab "Risultati"
