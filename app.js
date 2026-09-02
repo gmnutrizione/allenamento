@@ -549,14 +549,73 @@ function apriDettaglio(ex, giorno, gruppo) {
 
   document.getElementById("detail-sets-reps").textContent = currentDettaglio.serie + " x " + currentDettaglio.ripetizioni;
   document.getElementById("target-kg").textContent = currentDettaglio.caricoPrevisto || "";
+  document.getElementById("rec-static").textContent = "Rec " + currentDettaglio.recupero + "''";
 
   renderSetsInputs();
   setupRecTimer(currentDettaglio.recupero);
 
-  const savedComment = getSavedInput("commento") || "";
-  document.getElementById("comment-input").value = savedComment;
-
   showScreen("screen-dettaglio");
+}
+
+document.getElementById("avanti-btn").addEventListener("click", vaiAValutazione);
+
+function vaiAValutazione() {
+  const rpeSalvato = getSavedInput("rpe");
+  const grid = document.getElementById("rpe-grid");
+  grid.innerHTML = "";
+  for (let i = 1; i <= 10; i++) {
+    const opt = document.createElement("div");
+    opt.className = "rpe-option" + (rpeSalvato == i ? " selezionato" : "");
+    opt.textContent = i;
+    opt.addEventListener("click", () => {
+      grid.querySelectorAll(".rpe-option").forEach(o => o.classList.remove("selezionato"));
+      opt.classList.add("selezionato");
+      saveInput("rpe", i);
+    });
+    grid.appendChild(opt);
+  }
+
+  document.getElementById("comment-input").value = getSavedInput("commento") || "";
+  showScreen("screen-valutazione");
+}
+
+document.getElementById("prossimo-btn").addEventListener("click", prossimoEsercizio);
+
+function listaFlatGiorno(giorno) {
+  const rows = esercizi.filter(r => r.Giorno === giorno);
+  const gruppi = [...new Set(rows.map(r => r["Gruppo muscolare"]).filter(Boolean))];
+  const flat = [];
+  gruppi.forEach(gruppo => {
+    const originali = rows
+      .filter(r => r["Gruppo muscolare"] === gruppo)
+      .sort((a, b) => (parseInt(a.Ordine) || 0) - (parseInt(b.Ordine) || 0));
+    originali.forEach(ex => {
+      const chiave = chiaveEsercizio(giorno, gruppo, ex.Esercizio);
+      if (!isRimosso(chiave)) flat.push({ ex, giorno, gruppo, nome: ex.Esercizio });
+    });
+    elencoAggiunti(giorno, gruppo).forEach(agg => {
+      flat.push({ ex: agg, giorno, gruppo, nome: agg.esercizio });
+    });
+  });
+  return flat;
+}
+
+function prossimoEsercizio() {
+  const giorno = currentDettaglio.giorno;
+  const gruppoCorrente = currentDettaglio.gruppo;
+  const nomeCorrente = currentDettaglio.esercizio;
+
+  inviaRisultatoCorrente();
+
+  const flat = listaFlatGiorno(giorno);
+  const idx = flat.findIndex(item => item.gruppo === gruppoCorrente && item.nome === nomeCorrente);
+
+  if (idx >= 0 && idx < flat.length - 1) {
+    const next = flat[idx + 1];
+    apriDettaglio(next.ex, next.giorno, next.gruppo);
+  } else {
+    showScreen("screen-esercizi");
+  }
 }
 
 function toEmbedUrl(url) {
@@ -666,35 +725,34 @@ let recRunning = false;
 function setupRecTimer(secondiTotali) {
   clearInterval(recInterval);
   recRunning = false;
-  const btn = document.getElementById("rec-btn");
-  const text = document.getElementById("rec-text");
-  const icon = document.getElementById("rec-icon");
+  const btn = document.getElementById("timer-btn");
   let tempoRimasto = secondiTotali;
 
-  icon.innerHTML = `<span class="play-tri"></span>`;
-  text.textContent = "Rec " + secondiTotali + "''";
+  btn.classList.remove("attivo");
+  btn.textContent = "Avvia timer";
 
   btn.onclick = () => {
     if (!recRunning) {
       recRunning = true;
-      icon.innerHTML = `<span class="pause-bars" style="display:flex;"><span></span><span></span></span>`;
+      btn.classList.add("attivo");
       recInterval = setInterval(() => {
         tempoRimasto -= 1;
         if (tempoRimasto <= 0) {
           clearInterval(recInterval);
           recRunning = false;
           tempoRimasto = secondiTotali;
-          text.textContent = "Rec " + secondiTotali + "''";
-          icon.innerHTML = `<span class="play-tri"></span>`;
+          btn.classList.remove("attivo");
+          btn.textContent = "Avvia timer";
           suonaFineTimer();
         } else {
-          text.textContent = "Rec " + tempoRimasto + "''";
+          btn.textContent = tempoRimasto + "''";
         }
       }, 1000);
     } else {
       recRunning = false;
       clearInterval(recInterval);
-      icon.innerHTML = `<span class="play-tri"></span>`;
+      btn.classList.remove("attivo");
+      btn.textContent = "Avvia timer";
     }
   };
 }
@@ -735,6 +793,8 @@ function inviaRisultatoCorrente() {
     rep = valori.join("-");
   }
   const commento = getSavedInput("commento") || "";
+  const rpe = getSavedInput("rpe");
+  const commentoCompleto = (rpe ? "Fatica: " + rpe + "/10. " : "") + commento;
 
   inviaEvento({
     tipo: "Allenamento",
@@ -744,7 +804,7 @@ function inviaRisultatoCorrente() {
     esercizio: currentDettaglio.esercizio,
     serieRipetizioni,
     kg, rep,
-    commento
+    commento: commentoCompleto
   });
 
   currentDettaglio = null;

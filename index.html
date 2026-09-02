@@ -2,12 +2,15 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Schede Palestra</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#085041">
 <link rel="apple-touch-icon" href="icon.png">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -122,18 +125,28 @@
       <div class="sets-rec-row">
         <p class="sets-reps" id="detail-sets-reps"></p>
         <p class="target-kg" id="target-kg"></p>
-        <button class="rec-btn" id="rec-btn">
-          <span class="rec-icon" id="rec-icon">
-            <span class="play-tri"></span>
-          </span>
-          <span id="rec-text">Rec</span>
-        </button>
+        <p class="rec-static" id="rec-static"></p>
       </div>
+      <button class="timer-btn" id="timer-btn">Avvia timer</button>
       <div class="sets-inputs" id="sets-inputs"></div>
+      <button class="btn-avanti" id="avanti-btn">Avanti</button>
+    </div>
+  </div>
+
+  <!-- SCHERMATA: valutazione esercizio -->
+  <div id="screen-valutazione" class="screen">
+    <div class="page-pad">
+      <div class="top-bar">
+        <span class="back-arrow" data-back="screen-dettaglio">&#8592;</span>
+        <p class="page-title-inline">Come è andata?</p>
+      </div>
+      <p class="rpe-label">Livello di fatica percepita</p>
+      <div class="rpe-grid" id="rpe-grid"></div>
       <div class="comment-box">
         <p class="comment-label">Commento</p>
         <textarea id="comment-input" placeholder="Scrivi qui eventuali feedback..."></textarea>
       </div>
+      <button class="btn-primary" id="prossimo-btn" style="width:100%; max-width:none; margin-top: 18px;">Prossimo esercizio</button>
     </div>
   </div>
 
@@ -141,6 +154,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="config.js?v=2"></script>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
