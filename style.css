@@ -145,6 +145,24 @@ body {
 .day-progress-fill { height: 100%; background: var(--verde); border-radius: 999px; }
 
 .blocchi-list { display: flex; flex-direction: column; gap: 10px; }
+
+.congrats-box {
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 2rem;
+}
+.congrats-icon {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: var(--terracotta-chiaro);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 34px; margin-bottom: 1.25rem;
+}
+.congrats-titolo { font-size: 20px; font-weight: 700; margin: 0 0 6px; }
+.congrats-sottotitolo { font-size: 14px; color: var(--text-secondary); margin: 0 0 1.5rem; }
+.congrats-stats { display: flex; gap: 10px; width: 100%; max-width: 300px; margin-bottom: 2rem; }
+.congrats-stat { flex: 1; background: var(--surface-1); border-radius: 12px; padding: 14px; }
+.congrats-stat-num { font-size: 22px; font-weight: 700; margin: 0; color: var(--verde); }
+.congrats-stat-label { font-size: 11px; color: var(--text-secondary); margin: 2px 0 0; }
 .btn-danger {
   width: 100%; margin-top: 20px;
   background: #B3261E; color: white;

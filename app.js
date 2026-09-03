@@ -471,9 +471,39 @@ function concludiAllenamento(giorno) {
     giorno: giorno,
     commento: "Allenamento " + currentSessione + " concluso"
   });
+
+  mostraCongratulazioni(giorno);
+}
+
+function statisticheBlocco() {
+  const giorniBlocco = [...new Set(esercizi.map(r => r.Giorno))];
+  let totale = 0, completate = 0;
+  giorniBlocco.forEach(g => {
+    const rows = esercizi.filter(r => r.Giorno === g);
+    const t = rows.length ? Math.max(1, caricoColumns(rows[0]).length) : 0;
+    totale += t;
+    completate += getSessioniCompletate(g).length;
+  });
+  const percentuale = totale > 0 ? Math.round((completate / totale) * 100) : 0;
+  return { totale, completate, percentuale };
+}
+
+function mostraCongratulazioni(giorno) {
+  const stats = statisticheBlocco();
+  const primoNome = clienteNome ? clienteNome.trim().split(" ")[0] : "";
+
+  document.getElementById("congrats-titolo").textContent = "Ottimo lavoro" + (primoNome ? " " + primoNome : "") + "!";
+  document.getElementById("congrats-sottotitolo").textContent = "Hai concluso l'allenamento n\u00b0" + currentSessione + " del " + giorno;
+  document.getElementById("congrats-stat1").textContent = stats.completate + " di " + stats.totale;
+  document.getElementById("congrats-stat2").textContent = stats.percentuale + "%";
+
+  showScreen("screen-congratulazioni");
+}
+
+document.getElementById("congrats-avanti-btn").addEventListener("click", () => {
   buildGiorni();
   showScreen("screen-giorni");
-}
+});
 
 // ============================================================
 // GRUPPI ED ESERCIZI (con modalità modifica)
