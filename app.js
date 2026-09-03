@@ -387,7 +387,7 @@ function openGiorno(giorno) {
     header.style.backgroundImage = "";
   }
 
-  renderGruppi(giorno, gruppi);
+  renderElencoEsercizi(giorno);
   document.getElementById("concludi-btn").onclick = () => concludiAllenamento(giorno);
   showScreen("screen-esercizi");
 }
@@ -484,83 +484,50 @@ function isRimosso(chiave) {
   return !!(editState.removed && editState.removed[chiave]);
 }
 
-function elencoAggiunti(giorno, gruppo) {
-  if (!editState.added) return [];
-  return Object.values(editState.added).filter(a => a.giorno === giorno && a.gruppo === gruppo);
-}
-
-function renderGruppi(giorno, gruppi) {
+function renderElencoEsercizi(giorno) {
   const container = document.getElementById("exercise-groups");
   container.innerHTML = "";
 
-  gruppi.forEach(gruppo => {
-    const originali = esercizi
-      .filter(r => r.Giorno === giorno && r["Gruppo muscolare"] === gruppo)
-      .sort((a, b) => (parseInt(a.Ordine) || 0) - (parseInt(b.Ordine) || 0));
+  const header = document.createElement("div");
+  header.className = "group-header";
+  header.innerHTML = `<p class="group-name">Esercizi</p><span class="group-toggle" id="modifica-toggle">Modifica</span>`;
+  container.appendChild(header);
 
-    const block = document.createElement("div");
-    block.className = "group-block";
-    block.dataset.editMode = "false";
+  const listWrap = document.createElement("div");
+  container.appendChild(listWrap);
 
-    const header = document.createElement("div");
-    header.className = "group-header";
-    header.innerHTML = `<p class="group-name">${gruppo}</p><span class="group-toggle">Modifica</span>`;
-    block.appendChild(header);
+  let editMode = false;
 
-    const listWrap = document.createElement("div");
-    block.appendChild(listWrap);
+  function draw() {
+    listWrap.innerHTML = "";
+    header.querySelector("#modifica-toggle").textContent = editMode ? "Fatto" : "Modifica";
 
-    function draw() {
-      listWrap.innerHTML = "";
-      const editMode = block.dataset.editMode === "true";
-      header.querySelector(".group-toggle").textContent = editMode ? "Fatto" : "Modifica";
+    const originali = esercizi.filter(r => r.Giorno === giorno);
+    const aggiunti = Object.values(editState.added || {}).filter(a => a.giorno === giorno);
+    let elenco = [];
 
-      // esercizi originali non rimossi
-      originali.forEach(ex => {
-        const chiave = chiaveEsercizio(giorno, gruppo, ex.Esercizio);
-        if (isRimosso(chiave)) return;
-        listWrap.appendChild(renderRigaEsercizio(ex, giorno, gruppo, chiave, ex.Bloccato === "si", editMode, () => draw()));
-      });
-
-      // esercizi aggiunti manualmente (sostituzioni)
-      elencoAggiunti(giorno, gruppo).forEach(agg => {
-        const chiave = chiaveEsercizio(giorno, gruppo, agg.esercizio);
-        listWrap.appendChild(renderRigaEsercizio(agg, giorno, gruppo, chiave, false, editMode, () => draw()));
-      });
-    }
-
-    header.querySelector(".group-toggle").addEventListener("click", () => {
-      block.dataset.editMode = block.dataset.editMode === "true" ? "false" : "true";
-      draw();
+    originali.forEach(ex => {
+      const chiave = chiaveEsercizio(giorno, ex["Gruppo muscolare"], ex.Esercizio);
+      if (isRimosso(chiave)) return;
+      elenco.push({ ex, gruppo: ex["Gruppo muscolare"], chiave, bloccato: ex.Bloccato === "si", ordine: parseInt(ex.Ordine) || 0 });
     });
+    aggiunti.forEach(agg => {
+      const chiave = chiaveEsercizio(giorno, agg.gruppo, agg.esercizio);
+      elenco.push({ ex: agg, gruppo: agg.gruppo, chiave, bloccato: false, ordine: parseInt(agg.Ordine) || 0 });
+    });
+    elenco.sort((a, b) => a.ordine - b.ordine);
 
+    elenco.forEach(item => {
+      listWrap.appendChild(renderRigaEsercizio(item.ex, giorno, item.gruppo, item.chiave, item.bloccato, editMode, draw));
+    });
+  }
+
+  header.querySelector("#modifica-toggle").addEventListener("click", () => {
+    editMode = !editMode;
     draw();
-    container.appendChild(block);
   });
-}
 
-function raccogliSuggerimenti(originali, attivi) {
-  const risultato = [];
-  const visti = new Set();
-  originali.forEach(ex => {
-    const info = archivio[ex.Esercizio.trim()];
-    if (!info) return;
-    info.alternative.forEach(altNome => {
-      if (attivi.has(altNome) || visti.has(altNome)) return;
-      visti.add(altNome);
-      risultato.push({
-        esercizio: altNome,
-        Serie: ex.Serie,
-        Ripetizioni: ex.Ripetizioni,
-        Recupero: ex.Recupero,
-        Tipo: ex.Tipo,
-        Bloccato: "no",
-        Giorno: ex.Giorno,
-        "Gruppo muscolare": ex["Gruppo muscolare"]
-      });
-    });
-  });
-  return risultato;
+  draw();
 }
 
 function renderRigaEsercizio(ex, giorno, gruppo, chiave, bloccato, editMode, onChange) {
@@ -635,19 +602,10 @@ function sostituisciEsercizio(giorno, gruppo, ex, nomeOriginale) {
   editState.removed[chiaveEsercizio(giorno, gruppo, nomeOriginale)] = true;
   editState.added[chiaveEsercizio(giorno, gruppo, nuovo)] = {
     esercizio: nuovo, giorno, gruppo,
-    Serie: ex.Serie, Ripetizioni: ex.Ripetizioni, Recupero: ex.Recupero, Tipo: ex.Tipo
+    Serie: ex.Serie, Rep: ex.Rep, Recupero: ex.Recupero, Tipo: ex.Tipo, Ordine: ex.Ordine
   };
   saveEditState();
   inviaModifica(giorno, gruppo, nomeOriginale, "Sostituito con: " + nuovo);
-}
-
-function aggiungiEsercizio(giorno, gruppo, sugg) {
-  editState.added[chiaveEsercizio(giorno, gruppo, sugg.esercizio)] = {
-    esercizio: sugg.esercizio, giorno, gruppo,
-    Serie: sugg.Serie, Ripetizioni: sugg.Ripetizioni, Recupero: sugg.Recupero, Tipo: sugg.Tipo
-  };
-  saveEditState();
-  inviaModifica(giorno, gruppo, sugg.esercizio, "Aggiunto alla scheda");
 }
 
 // ============================================================
@@ -746,6 +704,7 @@ function renderSuperset() {
 
     const block = document.createElement("div");
     block.className = "superset-block";
+    const descrizione = (archivio[subNome.trim()] && archivio[subNome.trim()].descrizione) || "Nessuna descrizione disponibile.";
     let righeHtml = "";
     for (let i = 1; i <= dett.serie; i++) {
       const valoreRep = savedRep[i - 1] || "";
@@ -763,7 +722,14 @@ function renderSuperset() {
       `;
     }
     block.innerHTML = `
-      <p class="superset-block-nome">${idx + 1}&#65041; ${subNome}</p>
+      <div class="desc-toggle superset-desc-toggle" data-sub="${idx}">
+        <p class="superset-block-nome">${idx + 1}. ${subNome}</p>
+        <span class="desc-hint-wrap">
+          <span class="desc-hint">Descrizione</span>
+          <span class="chevron"></span>
+        </span>
+      </div>
+      <div class="desc-text superset-desc-text" data-sub="${idx}" style="display:none;">${descrizione}</div>
       <p class="superset-block-sub">${dett.serie} x ${dett.ripetizioni}${idx > 0 ? " &middot; subito dopo" : ""}</p>
       ${righeHtml}
     `;
@@ -777,6 +743,17 @@ function renderSuperset() {
 
   container.querySelectorAll("input").forEach(inp => {
     inp.addEventListener("input", salvaValoriSuperset);
+  });
+
+  container.querySelectorAll(".superset-desc-toggle").forEach(toggle => {
+    toggle.addEventListener("click", () => {
+      const idx = toggle.dataset.sub;
+      const desc = container.querySelector(`.superset-desc-text[data-sub="${idx}"]`);
+      const chevron = toggle.querySelector(".chevron");
+      const aperta = desc.style.display !== "none";
+      desc.style.display = aperta ? "none" : "block";
+      chevron.classList.toggle("open", !aperta);
+    });
   });
 }
 
@@ -821,21 +798,21 @@ document.getElementById("prossimo-btn").addEventListener("click", prossimoEserci
 document.getElementById("indietro-btn").addEventListener("click", esercizioPrecedente);
 
 function listaFlatGiorno(giorno) {
-  const rows = esercizi.filter(r => r.Giorno === giorno);
-  const gruppi = [...new Set(rows.map(r => r["Gruppo muscolare"]).filter(Boolean))];
-  const flat = [];
-  gruppi.forEach(gruppo => {
-    const originali = rows
-      .filter(r => r["Gruppo muscolare"] === gruppo)
-      .sort((a, b) => (parseInt(a.Ordine) || 0) - (parseInt(b.Ordine) || 0));
-    originali.forEach(ex => {
-      const chiave = chiaveEsercizio(giorno, gruppo, ex.Esercizio);
-      if (!isRimosso(chiave)) flat.push({ ex, giorno, gruppo, nome: ex.Esercizio });
-    });
-    elencoAggiunti(giorno, gruppo).forEach(agg => {
-      flat.push({ ex: agg, giorno, gruppo, nome: agg.esercizio });
-    });
+  const originali = esercizi.filter(r => r.Giorno === giorno);
+  const aggiunti = Object.values(editState.added || {}).filter(a => a.giorno === giorno);
+  let flat = [];
+
+  originali.forEach(ex => {
+    const gruppo = ex["Gruppo muscolare"];
+    const chiave = chiaveEsercizio(giorno, gruppo, ex.Esercizio);
+    if (isRimosso(chiave)) return;
+    flat.push({ ex, giorno, gruppo, nome: ex.Esercizio, ordine: parseInt(ex.Ordine) || 0 });
   });
+  aggiunti.forEach(agg => {
+    flat.push({ ex: agg, giorno, gruppo: agg.gruppo, nome: agg.esercizio, ordine: parseInt(agg.Ordine) || 0 });
+  });
+
+  flat.sort((a, b) => a.ordine - b.ordine);
   return flat;
 }
 
