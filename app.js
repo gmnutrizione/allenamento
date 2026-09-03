@@ -98,8 +98,10 @@ async function caricaSchedaCliente() {
 }
 
 function fetchCsv(url) {
+  const separatore = url.includes("?") ? "&" : "?";
+  const urlFresca = url + separatore + "_=" + Date.now();
   return new Promise((resolve, reject) => {
-    Papa.parse(url, {
+    Papa.parse(urlFresca, {
       download: true,
       header: true,
       skipEmptyLines: true,
