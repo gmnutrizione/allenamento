@@ -1109,7 +1109,7 @@ function inviaEvento(dati) {
   if (typeof APPS_SCRIPT_URL === "undefined" || !APPS_SCRIPT_URL) return;
   dati.cliente = clienteNome;
   try {
-    navigator.sendBeacon(APPS_SCRIPT_URL, new Blob([JSON.stringify(dati)], { type: "application/json" }));
+    navigator.sendBeacon(APPS_SCRIPT_URL, new Blob([JSON.stringify(dati)], { type: "text/plain;charset=utf-8" }));
   } catch (e) {
     fetch(APPS_SCRIPT_URL, { method: "POST", body: JSON.stringify(dati) }).catch(() => {});
   }
