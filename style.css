@@ -353,6 +353,17 @@ body {
   cursor: pointer;
 }
 
+.chip-tecnica {
+  display: inline-block;
+  background: var(--verde-chiaro); color: var(--verde);
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 6px 12px; border-radius: 999px;
+  margin-bottom: 12px;
+}
+.superset-block { margin-bottom: 14px; }
+.superset-block-nome { font-weight: 700; font-size: 16px; margin: 0 0 4px; }
+.superset-block-sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 10px; }
+.superset-divider { border-top: 1px dashed var(--border); margin: 0 0 14px; }
 .set-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .set-label { font-size: 15px; font-weight: 600; color: var(--text-primary); }
 .set-input-group { display: flex; align-items: center; gap: 6px; }

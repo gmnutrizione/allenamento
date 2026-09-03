@@ -403,15 +403,44 @@ function concludiAllenamento(giorno) {
   const flat = listaFlatGiorno(giorno);
 
   flat.forEach(item => {
-    const valori = getSavedInputRefs(giorno, item.gruppo, item.nome, "valori") || [];
-    const valoriKg = getSavedInputRefs(giorno, item.gruppo, item.nome, "valoriKg") || [];
+    const subNomi = item.nome.split("+").map(s => s.trim()).filter(Boolean);
     const commento = getSavedInputRefs(giorno, item.gruppo, item.nome, "commento") || "";
     const rpe = getSavedInputRefs(giorno, item.gruppo, item.nome, "rpe");
+    const commentoCompleto = (rpe ? "Fatica: " + rpe + "/10. " : "") + commento;
+    const tipo = (item.ex.Tipo || "pesi").toLowerCase();
+
+    if (subNomi.length > 1) {
+      // super-set / tri-set: un invio per ciascun esercizio, stesso commento/fatica condivisi
+      subNomi.forEach((subNome, idx) => {
+        const valori = getSavedInputRefs(giorno, item.gruppo, item.nome, "valori_" + idx) || [];
+        const valoriKg = getSavedInputRefs(giorno, item.gruppo, item.nome, "valoriKg_" + idx) || [];
+        const haDati = valori.some(v => v) || (idx === 0 && (rpe || (commento && commento.trim())));
+        if (!haDati) return;
+
+        const kgCompilati = valoriKg.some(v => v && v.trim() !== "");
+        const kg = kgCompilati ? valoriKg.join("-") : "";
+        const rep = valori.join("-");
+
+        inviaEvento({
+          tipo: "Allenamento",
+          blocco: currentBloccoNumero,
+          giorno: giorno,
+          gruppoMuscolare: item.gruppo,
+          esercizio: subNome,
+          serieRipetizioni: (item.ex.Serie || "") + "x" + (item.ex.Rep || ""),
+          kg, rep,
+          commento: idx === 0 ? commentoCompleto : ("Parte di super-set/tri-set con: " + subNomi.filter((n, i2) => i2 !== idx).join(", "))
+        });
+      });
+      return;
+    }
+
+    const valori = getSavedInputRefs(giorno, item.gruppo, item.nome, "valori") || [];
+    const valoriKg = getSavedInputRefs(giorno, item.gruppo, item.nome, "valoriKg") || [];
 
     const haDati = valori.some(v => v) || rpe || (commento && commento.trim());
     if (!haDati) return;
 
-    const tipo = (item.ex.Tipo || "pesi").toLowerCase();
     let kg = "", rep = "";
     if (tipo.includes("corpo")) {
       rep = valori.join("-");
@@ -420,7 +449,6 @@ function concludiAllenamento(giorno) {
       kg = kgCompilati ? valoriKg.join("-") : (caricoColonnaSessione(item.ex, currentSessione) || ultimoCarico(item.ex) || "");
       rep = valori.join("-");
     }
-    const commentoCompleto = (rpe ? "Fatica: " + rpe + "/10. " : "") + commento;
 
     inviaEvento({
       tipo: "Allenamento",
@@ -638,38 +666,133 @@ function parseRecuperoSecondi(testo) {
 }
 
 function apriDettaglio(ex, giorno, gruppo) {
-  const nome = ex.Esercizio || ex.esercizio;
-  const info = archivio[nome.trim()] || { video: "", descrizione: "" };
-  const video = (ex.Video || "").trim() || info.video;
+  const nomeGrezzo = ex.Esercizio || ex.esercizio;
+  const subNomi = nomeGrezzo.split("+").map(s => s.trim()).filter(Boolean);
+  const isTecnica = subNomi.length > 1;
+
+  const caricoPrevisto = caricoColonnaSessione(ex, currentSessione) || ultimoCarico(ex);
 
   currentDettaglio = {
-    giorno, gruppo, esercizio: nome,
+    giorno, gruppo, esercizio: nomeGrezzo,
     serie: parseInt(ex.Serie) || 1,
     ripetizioni: ex.Rep,
     recupero: parseRecuperoSecondi(ex.Recupero),
     tipo: (ex.Tipo || "pesi").toLowerCase(),
-    caricoPrevisto: caricoColonnaSessione(ex, currentSessione) || ultimoCarico(ex),
-    valori: [] // riempito sotto
+    caricoPrevisto,
+    isTecnica,
+    subNomi,
+    valori: []
   };
 
-  const variante = ex.Variante ? " (" + ex.Variante + ")" : "";
-  document.getElementById("detail-name-top").textContent = nome + variante;
-  document.getElementById("detail-name").textContent = nome + variante;
-  document.getElementById("desc-text").textContent = info.descrizione || "Nessuna descrizione disponibile.";
-  document.getElementById("desc-text").style.display = "none";
-  document.getElementById("desc-chevron").classList.remove("open");
+  document.getElementById("detail-name-top").textContent = isTecnica ? "Esercizi" : nomeGrezzo;
 
+  // video: sempre uno solo, dalla riga o in fallback dall'archivio del primo esercizio
+  const infoPrimo = archivio[subNomi[0].trim()] || { video: "", descrizione: "" };
+  const video = (ex.Video || "").trim() || infoPrimo.video;
   document.getElementById("video-box").innerHTML = video
     ? `<iframe src="${toEmbedUrl(video)}" allowfullscreen allow="autoplay; encrypted-media"></iframe>`
     : `<div class="video-placeholder"></div>`;
 
-  document.getElementById("detail-sets-reps").textContent = currentDettaglio.serie + " x " + currentDettaglio.ripetizioni;
-  document.getElementById("rec-static").textContent = "Rec " + ((ex.Recupero || "").trim() || (currentDettaglio.recupero + "''"));
+  const chip = document.getElementById("chip-tecnica");
+  if (isTecnica) {
+    chip.style.display = "inline-block";
+    chip.textContent = subNomi.length === 2 ? "Super-set" : "Tri-set";
+  } else {
+    chip.style.display = "none";
+  }
 
-  renderSetsInputs();
+  document.getElementById("single-exercise-body").style.display = isTecnica ? "none" : "block";
+  document.getElementById("superset-body").style.display = isTecnica ? "block" : "none";
+
+  if (!isTecnica) {
+    const info = infoPrimo;
+    const variante = ex.Variante ? " (" + ex.Variante + ")" : "";
+    document.getElementById("detail-name-top").textContent = nomeGrezzo + variante;
+    document.getElementById("detail-name").textContent = nomeGrezzo + variante;
+    document.getElementById("desc-text").textContent = info.descrizione || "Nessuna descrizione disponibile.";
+    document.getElementById("desc-text").style.display = "none";
+    document.getElementById("desc-chevron").classList.remove("open");
+    document.getElementById("detail-sets-reps").textContent = currentDettaglio.serie + " x " + currentDettaglio.ripetizioni;
+    document.getElementById("rec-static").textContent = "Rec " + ((ex.Recupero || "").trim() || (currentDettaglio.recupero + "''"));
+    renderSetsInputs();
+  } else {
+    renderSuperset();
+  }
+
   setupRecTimer(currentDettaglio.recupero);
 
   showScreen("screen-dettaglio");
+}
+
+function kgPerSottoEsercizio(caricoPrevisto, subNomi) {
+  const parti = (caricoPrevisto || "").split("+").map(s => s.trim());
+  if (parti.length === subNomi.length) {
+    return parti.map(estraiKgDaCarico);
+  }
+  const kgUnico = estraiKgDaCarico(caricoPrevisto);
+  return subNomi.map(() => kgUnico);
+}
+
+function renderSuperset() {
+  const dett = currentDettaglio;
+  const container = document.getElementById("superset-body");
+  container.innerHTML = "";
+  const kgSuggeriti = kgPerSottoEsercizio(dett.caricoPrevisto, dett.subNomi);
+
+  dett.subNomi.forEach((subNome, idx) => {
+    const savedRep = getSavedInput("valori_" + idx) || [];
+    const savedKg = getSavedInput("valoriKg_" + idx) || [];
+    const kgSuggerito = kgSuggeriti[idx] || "";
+
+    const block = document.createElement("div");
+    block.className = "superset-block";
+    let righeHtml = "";
+    for (let i = 1; i <= dett.serie; i++) {
+      const valoreRep = savedRep[i - 1] || "";
+      const valoreKg = savedKg[i - 1] !== undefined ? savedKg[i - 1] : (kgSuggerito || "");
+      righeHtml += `
+        <div class="set-row">
+          <span class="set-label">Serie ${i}</span>
+          <div class="set-input-group">
+            <input type="text" inputmode="decimal" placeholder="0" class="kg-input" data-sub="${idx}" data-idx="${i - 1}" value="${valoreKg}">
+            <span class="set-unit">Kg</span>
+            <input type="text" inputmode="numeric" placeholder="0" class="rep-input" data-sub="${idx}" data-idx="${i - 1}" value="${valoreRep}">
+            <span class="set-unit">rep</span>
+          </div>
+        </div>
+      `;
+    }
+    block.innerHTML = `
+      <p class="superset-block-nome">${idx + 1}&#65041; ${subNome}</p>
+      <p class="superset-block-sub">${dett.serie} x ${dett.ripetizioni}${idx > 0 ? " &middot; subito dopo" : ""}</p>
+      ${righeHtml}
+    `;
+    container.appendChild(block);
+    if (idx < dett.subNomi.length - 1) {
+      const divider = document.createElement("div");
+      divider.className = "superset-divider";
+      container.appendChild(divider);
+    }
+  });
+
+  container.querySelectorAll("input").forEach(inp => {
+    inp.addEventListener("input", salvaValoriSuperset);
+  });
+}
+
+function salvaValoriSuperset() {
+  currentDettaglio.subNomi.forEach((subNome, idx) => {
+    const valoriRep = [];
+    document.querySelectorAll(`#superset-body .rep-input[data-sub="${idx}"]`).forEach(inp => {
+      valoriRep[parseInt(inp.dataset.idx)] = inp.value;
+    });
+    const valoriKg = [];
+    document.querySelectorAll(`#superset-body .kg-input[data-sub="${idx}"]`).forEach(inp => {
+      valoriKg[parseInt(inp.dataset.idx)] = inp.value;
+    });
+    saveInput("valori_" + idx, valoriRep);
+    saveInput("valoriKg_" + idx, valoriKg);
+  });
 }
 
 document.getElementById("avanti-btn").addEventListener("click", vaiAValutazione);
