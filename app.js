@@ -147,6 +147,11 @@ function caricoColonnaSessione(row, sessione) {
   return trovata ? (row[trovata.key] || "").trim() : "";
 }
 
+function notaColonnaSessione(row, sessione) {
+  const chiave = "Nota " + sessione + " sett";
+  return (row[chiave] || "").toString().trim();
+}
+
 function estraiKgDaCarico(testo) {
   const str = (testo || "").toString().trim();
   if (!str) return "";
@@ -401,6 +406,41 @@ function getSavedInputRefs(giorno, gruppo, esercizio, campo) {
   return JSON.parse(saved)[campo];
 }
 
+function calcolaProgressione(ex, ultimoValore, ultimaRep, rpe) {
+  const tipo = (ex.Tipo || "pesi").toLowerCase();
+  const passo = parseFloat((ex.Passo || "").toString().replace(",", ".")) || 1;
+  const repObiettivo = parseFloat((("" + (ex.Rep || "")).match(/(\d+(?:[.,]\d+)?)/) || [])[1]) || 0;
+
+  if (!repObiettivo || isNaN(ultimaRep)) return null;
+
+  let esito = "mantieni";
+  let nota = "";
+  const percentuale = ultimaRep / repObiettivo;
+
+  if (percentuale < 0.4) {
+    esito = "diminuisci";
+  } else if (ultimaRep < repObiettivo) {
+    esito = "mantieni";
+    nota = "Obiettivo: completa tutte le rep previste";
+  } else if (rpe !== null && rpe !== undefined && rpe <= 7) {
+    esito = "aumenta";
+  }
+
+  if (tipo.includes("corpo")) {
+    let nuovoTarget = repObiettivo;
+    if (esito === "aumenta") nuovoTarget = repObiettivo + passo;
+    if (esito === "diminuisci") nuovoTarget = Math.max(passo, repObiettivo - passo);
+    return { nuovoCarico: Math.round(nuovoTarget), nota };
+  } else {
+    if (isNaN(ultimoValore) || !ultimoValore) return null;
+    let nuovoKg = ultimoValore;
+    if (esito === "aumenta") nuovoKg = ultimoValore + passo;
+    if (esito === "diminuisci") nuovoKg = Math.max(passo, ultimoValore - passo);
+    nuovoKg = Math.round(nuovoKg / passo) * passo;
+    return { nuovoCarico: nuovoKg, nota };
+  }
+}
+
 function concludiAllenamento(giorno) {
   const flat = listaFlatGiorno(giorno);
 
@@ -452,7 +492,13 @@ function concludiAllenamento(giorno) {
       rep = valori.join("-");
     }
 
-    inviaEvento({
+    // progressione automatica (solo esercizi singoli, non super-set/tri-set)
+    const ultimaRep = parseFloat(valori[valori.length - 1]);
+    const ultimoValore = tipo.includes("corpo") ? ultimaRep : parseFloat(valoriKg[valoriKg.length - 1]);
+    const rpeNum = rpe ? parseInt(rpe) : null;
+    const progressione = calcolaProgressione(item.ex, ultimoValore, ultimaRep, rpeNum);
+
+    const eventoDati = {
       tipo: "Allenamento",
       blocco: currentBloccoNumero,
       giorno: giorno,
@@ -461,7 +507,14 @@ function concludiAllenamento(giorno) {
       serieRipetizioni: (item.ex.Serie || "") + "x" + (item.ex.Rep || ""),
       kg, rep,
       commento: commentoCompleto
-    });
+    };
+    if (progressione) {
+      eventoDati.prossimaSessione = currentSessione + 1;
+      eventoDati.nuovoCarico = progressione.nuovoCarico;
+      eventoDati.notaProssima = progressione.nota;
+    }
+
+    inviaEvento(eventoDati);
   });
 
   segnaSessioneCompletata(giorno, currentSessione);
@@ -704,6 +757,16 @@ function apriDettaglio(ex, giorno, gruppo) {
     document.getElementById("desc-chevron").classList.remove("open");
     document.getElementById("detail-sets-reps").textContent = currentDettaglio.serie + " x " + currentDettaglio.ripetizioni;
     document.getElementById("rec-static").textContent = "Rec " + ((ex.Recupero || "").trim() || (currentDettaglio.recupero + "''"));
+
+    const nota = notaColonnaSessione(ex, currentSessione);
+    const notaBanner = document.getElementById("nota-banner");
+    if (nota) {
+      notaBanner.textContent = nota;
+      notaBanner.style.display = "block";
+    } else {
+      notaBanner.style.display = "none";
+    }
+
     renderSetsInputs();
   } else {
     renderSuperset();
@@ -920,21 +983,27 @@ function saveInput(campo, valore) {
 function renderSetsInputs() {
   const wrap = document.getElementById("sets-inputs");
   wrap.innerHTML = "";
-  const corpoLibero = currentDettaglio.tipo.includes("corpo");
+  const tipo = currentDettaglio.tipo;
+  const isSecondi = tipo.includes("secondi");
+  const isCorpoLibero = tipo.includes("corpo");
   const savedRep = getSavedInput("valori") || [];
   const savedKg = getSavedInput("valoriKg") || [];
   const kgSuggerito = estraiKgDaCarico(currentDettaglio.caricoPrevisto);
+  const targetSecondi = parseInt(currentDettaglio.ripetizioni) || "";
 
   for (let i = 1; i <= currentDettaglio.serie; i++) {
     const row = document.createElement("div");
     row.className = "set-row";
 
-    if (corpoLibero) {
-      const checked = savedRep[i - 1] === "fatto" ? "checked" : "";
+    if (isCorpoLibero) {
+      const unita = isSecondi ? "sec" : "rep";
+      const valoreSalvato = savedRep[i - 1];
+      const valore = valoreSalvato !== undefined ? valoreSalvato : (isSecondi ? targetSecondi : "");
       row.innerHTML = `
         <span class="set-label">Serie ${i}</span>
         <div class="set-input-group">
-          <input type="checkbox" class="set-checkbox" data-idx="${i - 1}" ${checked}>
+          <input type="text" inputmode="numeric" placeholder="0" class="rep-input" data-idx="${i - 1}" value="${valore}">
+          <span class="set-unit">${unita}</span>
         </div>
       `;
     } else {
@@ -956,31 +1025,20 @@ function renderSetsInputs() {
   wrap.querySelectorAll("input[type=text]").forEach(inp => {
     inp.addEventListener("input", salvaValoriCorrenti);
   });
-  wrap.querySelectorAll("input[type=checkbox]").forEach(inp => {
-    inp.addEventListener("change", salvaValoriCorrenti);
-  });
 }
 
 function salvaValoriCorrenti() {
-  const corpoLibero = currentDettaglio.tipo.includes("corpo");
-  if (corpoLibero) {
-    const valori = [];
-    document.querySelectorAll("#sets-inputs input[type=checkbox]").forEach(inp => {
-      valori[parseInt(inp.dataset.idx)] = inp.checked ? "fatto" : "non fatto";
-    });
-    saveInput("valori", valori);
-  } else {
-    const valoriRep = [];
-    document.querySelectorAll("#sets-inputs .rep-input").forEach(inp => {
-      valoriRep[parseInt(inp.dataset.idx)] = inp.value;
-    });
-    const valoriKg = [];
-    document.querySelectorAll("#sets-inputs .kg-input").forEach(inp => {
-      valoriKg[parseInt(inp.dataset.idx)] = inp.value;
-    });
-    saveInput("valori", valoriRep);
-    saveInput("valoriKg", valoriKg);
-  }
+  const valoriRep = [];
+  document.querySelectorAll("#sets-inputs .rep-input").forEach(inp => {
+    valoriRep[parseInt(inp.dataset.idx)] = inp.value;
+  });
+  saveInput("valori", valoriRep);
+
+  const valoriKg = [];
+  document.querySelectorAll("#sets-inputs .kg-input").forEach(inp => {
+    valoriKg[parseInt(inp.dataset.idx)] = inp.value;
+  });
+  saveInput("valoriKg", valoriKg);
 }
 
 document.getElementById("comment-input").addEventListener("input", e => {
