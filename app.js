@@ -377,15 +377,25 @@ function apriSessioni(giorno) {
 
 function openGiorno(giorno) {
   currentGiorno = giorno;
-  const rows = esercizi.filter(r => r.Giorno === giorno);
-  const gruppi = [...new Set(rows.map(r => r["Gruppo muscolare"]).filter(Boolean))];
+  const rows = esercizi.filter(r => r.Giorno === giorno)
+    .sort((a, b) => (parseInt(a.Ordine) || 0) - (parseInt(b.Ordine) || 0));
+
+  const gruppi = [];
+  const conteggi = {};
+  rows.forEach(r => {
+    const g = r["Gruppo muscolare"];
+    if (!g) return;
+    if (!gruppi.includes(g)) gruppi.push(g);
+    conteggi[g] = (conteggi[g] || 0) + 1;
+  });
+  const gruppiPrincipali = gruppi.slice().sort((a, b) => conteggi[b] - conteggi[a]).slice(0, 2);
 
   document.getElementById("day-header-title").textContent = giorno;
   document.getElementById("day-header-sessione").textContent = "Allenamento " + currentSessione;
   const chipRow = document.getElementById("day-chips");
-  chipRow.innerHTML = gruppi.map(g => `<span class="chip">${g}</span>`).join("");
+  chipRow.innerHTML = gruppiPrincipali.map(g => `<span class="chip">${g}</span>`).join("");
 
-  const primoGruppo = gruppi[0];
+  const primoGruppo = gruppiPrincipali[0];
   const foto = primoGruppo ? fotoGruppi[primoGruppo] : "";
   const header = document.getElementById("day-header");
   if (foto && !foto.includes("LINK_FOTO_DRIVE")) {

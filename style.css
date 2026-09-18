@@ -184,7 +184,7 @@ body {
 /* ---- esercizi ---- */
 .day-header {
   position: relative;
-  height: 150px;
+  height: 190px;
   background: linear-gradient(135deg, var(--scuro), var(--scuro2));
   background-size: cover;
   background-position: center;
