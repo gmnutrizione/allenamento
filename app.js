@@ -784,6 +784,9 @@ function apriDettaglio(ex, giorno, gruppo) {
 
   setupRecTimer(currentDettaglio.recupero);
 
+  const commentoPrec = currentSessione > 1 ? getSavedInputSessione(currentSessione - 1, "commento") : null;
+  document.getElementById("prev-comment-text").textContent = (commentoPrec && commentoPrec.trim()) ? commentoPrec.trim() : "-";
+
   showScreen("screen-dettaglio");
 }
 
@@ -982,6 +985,14 @@ function getSavedInput(campo) {
   const obj = JSON.parse(saved);
   return obj[campo];
 }
+function getSavedInputSessione(sessione, campo) {
+  if (!currentDettaglio) return null;
+  const chiave = currentDettaglio.giorno + "|" + currentDettaglio.gruppo + "|" + currentDettaglio.esercizio + "|s" + sessione;
+  const saved = localStorage.getItem(storageKey("input_" + chiave));
+  if (!saved) return null;
+  const obj = JSON.parse(saved);
+  return obj[campo];
+}
 function saveInput(campo, valore) {
   if (!currentDettaglio) return;
   const key = storageKey("input_" + inputKeyFor(currentDettaglio));
@@ -1061,20 +1072,16 @@ document.getElementById("comment-input").addEventListener("input", e => {
 let recInterval = null;
 let recRunning = false;
 
+let audioCtx = null;
+
 function sbloccaAudio() {
-  const audio = document.getElementById("beep-audio");
-  if (!audio || audio.dataset.unlocked === "1") return;
-  audio.muted = true;
-  const p = audio.play();
-  if (p && p.then) {
-    p.then(() => {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.muted = false;
-      audio.dataset.unlocked = "1";
-    }).catch(() => {
-      audio.muted = false;
-    });
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) { return; }
+  }
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume();
   }
 }
 
@@ -1153,11 +1160,23 @@ function setupRecTimer(secondiTotali) {
 }
 
 function suonaFineTimer() {
-  const audio = document.getElementById("beep-audio");
-  if (!audio) return;
   try {
-    audio.currentTime = 0;
-    audio.play().catch(() => {});
+    sbloccaAudio();
+    if (!audioCtx) return;
+    [880, 1046, 1318].forEach((freq, i) => {
+      setTimeout(() => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = "square";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.7, audioCtx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.35);
+      }, i * 180);
+    });
   } catch (e) {}
 }
 
